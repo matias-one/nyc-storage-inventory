@@ -88,3 +88,11 @@ h1 {
   font-weight: bold;
   font-size: 0.9rem;
 }
+
+.alert {
+  text-align: center;
+  padding: 16px;
+  background: #7f1d1d;
+  color: #fecaca;
+  border-radius: 8px;
+}
