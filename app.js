@@ -1,9 +1,9 @@
-// Paste your Supabase Project details here
+// 1. Paste your Supabase Project details here
 const SUPABASE_URL = "https://mntgvvmzmmfsbikoidtt.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1udGd2dm16bW1mc2Jpa29pZHR0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2OTAwNzgsImV4cCI6MjEwODI2NjA3OH0.sbaIcQFm7LjfiqJQHZ1-ZM3EmeIvLEzzfdqEj_Ode8I";
 
-// Initialize Supabase Client
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Initialize Supabase Client using a different variable name ('db')
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let inventoryItems = [];
 
@@ -11,13 +11,14 @@ let inventoryItems = [];
 async function fetchInventory() {
   const itemListElement = document.getElementById("itemList");
 
-  const { data, error } = await supabase
+  // Use 'db' instead of 'supabase' here
+  const { data, error } = await db
     .from('inventory')
     .select('*');
 
   if (error) {
     console.error("Error loading Supabase data:", error);
-    itemListElement.innerHTML = `<p style="color:red; text-align:center;">Failed to connect to Supabase. Check app.js configuration.</p>`;
+    itemListElement.innerHTML = `<p style="color:red; text-align:center;">Failed to connect to Supabase: ${error.message}</p>`;
     return;
   }
 
