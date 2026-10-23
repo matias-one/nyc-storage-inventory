@@ -8,8 +8,12 @@ const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ===== 2. STATE =====
 let inventoryItems = [];
+let filteredItems = [];
+let displayedCount = 0;
+const BATCH_SIZE = 50; // Render 50 cards at a time
+let currentFilter = "all";
 
-// ===== 3. FETCH ALL INVENTORY (WITH PAGINATION) =====
+// ===== 3. FETCH DATA =====
 async function fetchInventory() {
   const itemListElement = document.getElementById("itemList");
   let allItems = [];
@@ -21,12 +25,12 @@ async function fetchInventory() {
       const { data, error } = await db
         .from("inventory")
         .select("*")
-        .order("id", { ascending: true })
+        .order("sku", { ascending: true })
         .range(from, from + PAGE_SIZE - 1);
 
       if (error) throw error;
-
       if (!data || data.length === 0) break;
+      
       allItems = allItems.concat(data);
       if (data.length < PAGE_SIZE) break; 
       from += PAGE_SIZE;
@@ -35,113 +39,138 @@ async function fetchInventory() {
     inventoryItems = allItems;
     console.log(`✅ Fetched ${inventoryItems.length} inventory rows.`);
     
-    if (inventoryItems.length > 0) {
-      console.log("Sample row data:", inventoryItems[0]);
-    }
-    
-    renderItems(inventoryItems);
+    filterAndSearch(); 
   } catch (err) {
-    console.error("❌ Error loading Supabase data:", err);
-    itemListElement.innerHTML = `<p class="alert">Failed to load data: ${err.message}</p>`;
+    console.error("❌ Error:", err);
+    itemListElement.innerHTML = `<p style="text-align:center; color:red;">Failed to load data: ${err.message}</p>`;
   }
 }
 
-// ===== 4. RENDER CARDS =====
-function renderItems(items) {
-  const container = document.getElementById("itemList");
+// ===== 4. FILTER & SEARCH LOGIC =====
+function filterAndSearch() {
+  const query = document.getElementById("searchInput").value.trim().toLowerCase();
 
-  if (items.length === 0) {
-    container.innerHTML = `<p style="text-align:center; color: var(--text-muted);">No items found.</p>`;
+  filteredItems = inventoryItems.filter((item) => {
+    // 1. Apply Search Query (searches all fields)
+    const searchable = [
+      item.sku, item.description, item.barcode, item.category, 
+      item.stock, item.status, item.eta, item.online, item.discontinued, 
+      item.supplier, item.area, item.shelf, item.bin, item.ssl_barcode, 
+      item.note, item.section
+    ].map((v) => (v == null ? "" : String(v).toLowerCase())).join(" ");
+
+    const matchesSearch = searchable.includes(query);
+
+    // 2. Apply Quick Filters
+    let matchesFilter = true;
+    const statusStr = (item.status || "").toLowerCase();
+    const stockStr = String(item.stock || "");
+    
+    if (currentFilter === "in-stock") {
+      matchesFilter = statusStr.includes("in stock") || parseInt(stockStr) > 0;
+    } else if (currentFilter === "out-of-stock") {
+      matchesFilter = statusStr.includes("out of stock") || parseInt(stockStr) <= 0;
+    } else if (currentFilter === "discontinued") {
+      matchesFilter = String(item.discontinued).toLowerCase() === "yes" || String(item.discontinued) === "1" || String(item.discontinued) === "true";
+    }
+
+    return matchesSearch && matchesFilter;
+  });
+
+  // Reset rendering
+  displayedCount = 0;
+  document.getElementById("itemList").innerHTML = "";
+  renderNextBatch();
+}
+
+// ===== 5. RENDER CARDS =====
+function renderNextBatch() {
+  const container = document.getElementById("itemList");
+  const loadMoreContainer = document.getElementById("loadMoreContainer");
+  const resultsInfo = document.getElementById("resultsInfo");
+
+  if (filteredItems.length === 0) {
+    container.innerHTML = `<p style="text-align:center; color: var(--text-muted); grid-column: 1/-1;">No items matched your search.</p>`;
+    resultsInfo.textContent = "";
+    loadMoreContainer.style.display = "none";
     return;
   }
 
-  container.innerHTML = items
-    .map(
-      (item) => `
-    <div class="item-card">
-      <div>
-        ${item.image_url ? `<img src="${item.image_url}" style="width: 100%; height: 140px; object-fit: cover; border-radius: 8px; margin-bottom: 10px;" />` : ""}
-        
-        <div class="item-title">${item.description || "Unnamed Item"}</div>
-        <div class="item-sku">
-          <strong>SKU:</strong> ${item.sku || "N/A"} <br/> 
-          <strong>Barcode:</strong> ${item.barcode || "N/A"}
-        </div>
-      </div>
+  resultsInfo.textContent = `Showing ${Math.min(displayedCount + BATCH_SIZE, filteredItems.length)} of ${filteredItems.length} items`;
 
-      <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);">
-        <div class="location-badge" style="background-color: #0284c7; margin-bottom: 6px;">
-          📍 ${item.area || "Basement"} - Sec ${item.section || "N/A"} - Shelf ${item.shelf || "N/A"} (Bin ${item.bin || "N/A"})
-        </div>
-        
-        <div style="font-size: 0.9rem; margin-bottom: 8px;">
-          <span style="background: #334155; padding: 2px 6px; border-radius: 4px;">🏷️ ${item.category || "No Category"}</span>
-          ${item.stock ? `<span style="background: #334155; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">📦 Qty: ${item.stock}</span>` : ""}
-        </div>
+  const nextItems = filteredItems.slice(displayedCount, displayedCount + BATCH_SIZE);
+  
+  nextItems.forEach((item) => {
+    // Determine Status Color
+    let statusClass = "status-in-stock";
+    const statusStr = (item.status || "").toLowerCase();
+    if (statusStr.includes("out") || parseInt(item.stock) <= 0) statusClass = "status-out-of-stock";
+    if (statusStr.includes("low") || parseInt(item.stock) < 5) statusClass = "status-low";
 
-        <div class="stock-tag" style="margin-bottom: 8px;">
-          Status: ${item.status || "Unknown"}
-        </div>
+    const isDisc = String(item.discontinued).toLowerCase() === "yes" || String(item.discontinued) === "1";
 
-        <!-- Extra details -->
-        <div style="font-size: 0.85rem; color: #cbd5e1; display: flex; flex-direction: column; gap: 4px;">
-          ${item.supplier ? `<div><strong>Supplier:</strong> ${item.supplier}</div>` : ""}
-          ${item.eta ? `<div><strong>ETA:</strong> ${item.eta}</div>` : ""}
-          ${item.ssl_barcode ? `<div><strong>SSL Barcode:</strong> ${item.ssl_barcode}</div>` : ""}
+    const cardHTML = `
+      <div class="item-card">
+        <div>
+          <div class="item-title">${item.description || "Unnamed Item"}</div>
+          <div class="item-sku">${item.sku || "NO SKU"}</div>
           
-          <div style="margin-top: 4px; display: flex; gap: 8px;">
-            ${item.online ? `<span style="color: #4ade80;">🌐 Online: ${item.online}</span>` : ""}
-            ${item.discontinued ? `<span style="color: #f87171;">🚫 Disc: ${item.discontinued}</span>` : ""}
+          <div class="location-badge">
+            📍 ${item.area || "Basement"} • Sec ${item.section || "-"} • Shelf ${item.shelf || "-"} • Bin ${item.bin || "-"}
+          </div>
+
+          <div class="badge-row">
+            ${item.category ? `<span class="badge">🏷️ ${item.category}</span>` : ""}
+            ${item.stock ? `<span class="badge">📦 Qty: ${item.stock}</span>` : ""}
+            <span class="badge ${statusClass}">${item.status || "Unknown"}</span>
+            ${isDisc ? `<span class="badge status-disc">🚫 Discontinued</span>` : ""}
           </div>
         </div>
 
-        ${item.note ? `<div style="font-size: 0.85rem; color: var(--warning); margin-top: 8px;">📝 ${item.note}</div>` : ""}
+        <div style="font-size: 0.85rem; color: #cbd5e1; border-top: 1px solid var(--border); padding-top: 10px;">
+          ${item.barcode ? `<div><strong>Barcode:</strong> ${item.barcode}</div>` : ""}
+          ${item.supplier ? `<div><strong>Supplier:</strong> ${item.supplier}</div>` : ""}
+          ${item.note ? `<div style="color: var(--warning); margin-top: 6px;">📝 ${item.note}</div>` : ""}
+        </div>
       </div>
-    </div>
-  `
-    )
-    .join("");
-}
-
-// ===== 5. SEARCH LOGIC (Searches EVERY column) =====
-const searchInput = document.getElementById("searchInput");
-
-searchInput.addEventListener("input", (e) => {
-  const query = e.target.value.trim().toLowerCase();
-
-  if (!query) {
-    renderItems(inventoryItems);
-    return;
-  }
-
-  const filtered = inventoryItems.filter((item) => {
-    // Combine all your columns into one giant string for searching
-    const searchable = [
-      item.sku,
-      item.description,
-      item.barcode,
-      item.category,
-      item.stock,
-      item.status,
-      item.eta,
-      item.online,
-      item.discontinued,
-      item.supplier,
-      item.area,
-      item.shelf,
-      item.bin,
-      item.ssl_barcode,
-      item.note,
-      item.section
-    ]
-      .map((v) => (v == null ? "" : String(v).toLowerCase()))
-      .join(" ");
-
-    return searchable.includes(query);
+    `;
+    container.insertAdjacentHTML("beforeend", cardHTML);
   });
 
-  renderItems(filtered);
+  displayedCount += nextItems.length;
+
+  // Show/Hide "Load More" button
+  if (displayedCount < filteredItems.length) {
+    loadMoreContainer.style.display = "block";
+  } else {
+    loadMoreContainer.style.display = "none";
+  }
+}
+
+// ===== 6. EVENT LISTENERS =====
+
+// Search input with Debounce (waits 300ms after typing stops to prevent lag)
+let debounceTimer;
+document.getElementById("searchInput").addEventListener("input", () => {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(filterAndSearch, 300);
 });
 
-// ===== 6. INITIAL LOAD =====
+// Filter Buttons
+document.querySelectorAll(".filter-pill").forEach((btn) => {
+  btn.addEventListener("click", (e) => {
+    // Update UI
+    document.querySelectorAll(".filter-pill").forEach(b => b.classList.remove("active"));
+    e.target.classList.add("active");
+    
+    // Update Logic
+    currentFilter = e.target.dataset.filter;
+    filterAndSearch();
+  });
+});
+
+// Load More Button
+document.getElementById("loadMoreBtn").addEventListener("click", renderNextBatch);
+
+// ===== 7. INITIAL LOAD =====
 fetchInventory();
