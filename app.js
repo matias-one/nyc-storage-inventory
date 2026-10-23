@@ -14,7 +14,7 @@ async function fetchInventory() {
   const itemListElement = document.getElementById("itemList");
   let allItems = [];
   let from = 0;
-  const PAGE_SIZE = 1000; // Supabase max rows per request
+  const PAGE_SIZE = 1000; 
 
   try {
     while (true) {
@@ -28,12 +28,17 @@ async function fetchInventory() {
 
       if (!data || data.length === 0) break;
       allItems = allItems.concat(data);
-      if (data.length < PAGE_SIZE) break; // no more pages
+      if (data.length < PAGE_SIZE) break; 
       from += PAGE_SIZE;
     }
 
     inventoryItems = allItems;
     console.log(`✅ Fetched ${inventoryItems.length} inventory rows.`);
+    
+    if (inventoryItems.length > 0) {
+      console.log("Sample row data:", inventoryItems[0]);
+    }
+    
     renderItems(inventoryItems);
   } catch (err) {
     console.error("❌ Error loading Supabase data:", err);
@@ -55,24 +60,42 @@ function renderItems(items) {
       (item) => `
     <div class="item-card">
       <div>
-        ${
-          item.image_url
-            ? `<img src="${item.image_url}" style="width: 100%; height: 140px; object-fit: cover; border-radius: 8px; margin-bottom: 10px;" />`
-            : ""
-        }
+        ${item.image_url ? `<img src="${item.image_url}" style="width: 100%; height: 140px; object-fit: cover; border-radius: 8px; margin-bottom: 10px;" />` : ""}
+        
         <div class="item-title">${item.description || "Unnamed Item"}</div>
-        <div class="item-sku">SKU: ${item.sku || "N/A"} | Barcode: ${item.barcode || "N/A"}</div>
-      </div>
-      <div>
-        <div class="location-badge">
-          📍 ${item.area || "Basement"} - Shelf ${item.shelf || "N/A"} (Bin ${item.bin || "N/A"})
+        <div class="item-sku">
+          <strong>SKU:</strong> ${item.sku || "N/A"} <br/> 
+          <strong>Barcode:</strong> ${item.barcode || "N/A"}
         </div>
-        <div class="stock-tag">Status: ${item.stock_status || "Unknown"}</div>
-        ${
-          item.note
-            ? `<div style="font-size: 0.85rem; color: #94a3b8; margin-top: 6px;">📝 ${item.note}</div>`
-            : ""
-        }
+      </div>
+
+      <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);">
+        <div class="location-badge" style="background-color: #0284c7; margin-bottom: 6px;">
+          📍 ${item.area || "Basement"} - Sec ${item.section || "N/A"} - Shelf ${item.shelf || "N/A"} (Bin ${item.bin || "N/A"})
+        </div>
+        
+        <div style="font-size: 0.9rem; margin-bottom: 8px;">
+          <span style="background: #334155; padding: 2px 6px; border-radius: 4px;">🏷️ ${item.category || "No Category"}</span>
+          ${item.stock ? `<span style="background: #334155; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">📦 Qty: ${item.stock}</span>` : ""}
+        </div>
+
+        <div class="stock-tag" style="margin-bottom: 8px;">
+          Status: ${item.status || "Unknown"}
+        </div>
+
+        <!-- Extra details -->
+        <div style="font-size: 0.85rem; color: #cbd5e1; display: flex; flex-direction: column; gap: 4px;">
+          ${item.supplier ? `<div><strong>Supplier:</strong> ${item.supplier}</div>` : ""}
+          ${item.eta ? `<div><strong>ETA:</strong> ${item.eta}</div>` : ""}
+          ${item.ssl_barcode ? `<div><strong>SSL Barcode:</strong> ${item.ssl_barcode}</div>` : ""}
+          
+          <div style="margin-top: 4px; display: flex; gap: 8px;">
+            ${item.online ? `<span style="color: #4ade80;">🌐 Online: ${item.online}</span>` : ""}
+            ${item.discontinued ? `<span style="color: #f87171;">🚫 Disc: ${item.discontinued}</span>` : ""}
+          </div>
+        </div>
+
+        ${item.note ? `<div style="font-size: 0.85rem; color: var(--warning); margin-top: 8px;">📝 ${item.note}</div>` : ""}
       </div>
     </div>
   `
@@ -80,7 +103,7 @@ function renderItems(items) {
     .join("");
 }
 
-// ===== 5. SEARCH LOGIC =====
+// ===== 5. SEARCH LOGIC (Searches EVERY column) =====
 const searchInput = document.getElementById("searchInput");
 
 searchInput.addEventListener("input", (e) => {
@@ -92,16 +115,24 @@ searchInput.addEventListener("input", (e) => {
   }
 
   const filtered = inventoryItems.filter((item) => {
-    // Combine all searchable fields into one string, safely handling nulls/numbers
+    // Combine all your columns into one giant string for searching
     const searchable = [
-      item.description,
       item.sku,
+      item.description,
       item.barcode,
-      item.bin,
-      item.shelf,
+      item.category,
+      item.stock,
+      item.status,
+      item.eta,
+      item.online,
+      item.discontinued,
+      item.supplier,
       item.area,
+      item.shelf,
+      item.bin,
+      item.ssl_barcode,
       item.note,
-      item.stock_status,
+      item.section
     ]
       .map((v) => (v == null ? "" : String(v).toLowerCase()))
       .join(" ");
