@@ -18,12 +18,16 @@
   </header>
 
   <main>
-    <input 
-      type="text" 
-      id="searchInput" 
-      class="search-box" 
-      placeholder="🔍 Type Item Name, SKU, or Bin Number..." 
-    />
+<input
+  type="text"
+  id="searchInput"
+  class="search-box"
+  placeholder="🔍 Type Item Name, SKU, or Bin Number..."
+  autocomplete="off"
+  autocapitalize="off"
+  spellcheck="false"
+  inputmode="search"
+/>
 
     <div id="itemList" class="item-grid">
       <p style="text-align: center; color: var(--text-muted);">Loading inventory database...</p>
