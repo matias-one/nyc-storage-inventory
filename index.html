@@ -6,28 +6,26 @@
   <title>NYC Basement Locator</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="stylesheet" href="styles.css" />
-  
-  <!-- Supabase Official JavaScript SDK -->
+  <!-- Supabase JS SDK -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-
   <header>
     <h1>📦 NYC Basement Locator</h1>
     <p class="subtitle">Search 2,500+ items across Zone A, B, C & D</p>
   </header>
 
   <main>
-<input
-  type="text"
-  id="searchInput"
-  class="search-box"
-  placeholder="🔍 Type Item Name, SKU, or Bin Number..."
-  autocomplete="off"
-  autocapitalize="off"
-  spellcheck="false"
-  inputmode="search"
-/>
+    <input 
+      type="text" 
+      id="searchInput" 
+      class="search-box" 
+      placeholder="🔍 Type Item Name, SKU, or Bin Number..." 
+      autocomplete="off"
+      autocapitalize="off"
+      spellcheck="false"
+      inputmode="search"
+    />
 
     <div id="itemList" class="item-grid">
       <p style="text-align: center; color: var(--text-muted);">Loading inventory database...</p>
