@@ -1,0 +1,90 @@
+:root {
+  --bg-dark: #0f172a;
+  --card-bg: #1e293b;
+  --accent: #38bdf8;
+  --text-light: #f8fafc;
+  --text-muted: #94a3b8;
+  --border: #334155;
+  --warning: #f59e0b;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  background-color: var(--bg-dark);
+  color: var(--text-light);
+  padding: 16px;
+}
+
+header {
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+h1 {
+  margin: 0 0 8px 0;
+  font-size: 1.8rem;
+}
+
+.subtitle {
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.search-box {
+  width: 100%;
+  padding: 16px;
+  font-size: 1.2rem;
+  border-radius: 12px;
+  border: 2px solid var(--border);
+  background-color: var(--card-bg);
+  color: white;
+  margin-bottom: 20px;
+  box-sizing: border-box;
+}
+
+.item-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.item-card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.item-title {
+  font-size: 1.25rem;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.item-sku {
+  color: var(--text-muted);
+  font-family: monospace;
+  font-size: 0.95rem;
+  margin-bottom: 12px;
+}
+
+.location-badge {
+  background-color: #0284c7;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-weight: bold;
+  font-size: 1.1rem;
+  display: inline-block;
+  margin-bottom: 8px;
+}
+
+.stock-tag {
+  color: var(--warning);
+  font-weight: bold;
+  font-size: 0.9rem;
+}
