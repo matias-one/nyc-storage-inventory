@@ -10,7 +10,6 @@
 </head>
 <body>
 
-  <!-- Sticky Header for quick access while scrolling -->
   <div class="sticky-header">
     <header>
       <h1>📦 Basement Locator</h1>
@@ -21,15 +20,15 @@
         type="text" 
         id="searchInput" 
         class="search-box" 
-        placeholder="🔍 Name, SKU, Barcode, or Bin..." 
+        placeholder="🔍 Name, SKU, Barcode, or SSL..." 
         autocomplete="off"
         autocapitalize="off"
         spellcheck="false"
         inputmode="search"
       />
+      <button id="clearBtn" class="clear-btn" title="Clear Search">✕</button>
     </div>
 
-    <!-- Quick Filter Pills -->
     <div class="filter-bar">
       <button class="filter-pill active" data-filter="all">All Items</button>
       <button class="filter-pill" data-filter="in-stock">In Stock</button>
@@ -42,7 +41,6 @@
     <div id="resultsInfo" class="results-info"></div>
     
     <div id="itemList" class="item-grid">
-      <!-- Loading spinner -->
       <div class="loader-container">
         <div class="loader"></div>
         <p>Connecting to database...</p>
