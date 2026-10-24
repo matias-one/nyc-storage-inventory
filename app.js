@@ -10,10 +10,63 @@ const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let inventoryItems = [];
 let filteredItems = [];
 let displayedCount = 0;
-const BATCH_SIZE = 50; // Render 50 cards at a time
+const BATCH_SIZE = 50; 
 let currentFilter = "all";
 
-// ===== 3. FETCH DATA =====
+// ===== 3. BONOBO LOGIC: ETA Cleaner & Parsers =====
+function cleanEta(value) {
+  if (!value) return '';
+  let cleaned = String(value).replace(/[\n\r]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (cleaned.includes('|')) cleaned = cleaned.split('|')[0].trim();
+  const dateRegex = /\b(\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4})\b/;
+  const match = cleaned.match(dateRegex);
+  if (match) return match[1];
+  return cleaned.split(' ')[0] || cleaned;
+}
+
+function parseShelf(raw) {
+  if (!raw) return { rack: '?', level: '00' };
+  const s = String(raw).trim();
+  const num = s.match(/(\d+)/);
+  const level = num ? num[1].padStart(2, '0') : '00';
+  let rack = s[0].toUpperCase();
+  if (s.startsWith('BR')) rack = 'BR';
+  return { rack, level };
+}
+
+function getAreaCode(area, section) {
+  // Uses the actual 'area' column if it exists, otherwise guesses from 'section'
+  const a = (area || '').toLowerCase();
+  const s = (section || '').toLowerCase();
+  if (a.includes('pi') || s.includes('pottery')) return 'PI';
+  if (a.includes('cr') || s.includes('ceramic')) return 'CR';
+  if (a.includes('br') || s.includes('boiler')) return 'BR';
+  if (a.includes('ci') || s.includes('candle')) return 'CI';
+  return 'default';
+}
+
+function getStatusBadge(stock, eta, discontinued) {
+  const etaText = cleanEta(eta);
+  const isDisc = String(discontinued).toLowerCase() === 'yes' || String(discontinued) === 'true' || String(discontinued) === '1';
+  
+  if (isDisc) {
+    return { label: 'D/C', css: 'badge-discontinued', icon: '⛔' };
+  }
+  
+  // Handle both boolean strings ("yes") and actual numbers from Supabase
+  const isStocked = String(stock).toLowerCase() === 'yes' || parseInt(stock) > 0;
+  
+  if (isStocked) {
+    return { label: 'In Stock', css: 'badge-instock', icon: '✓' };
+  } else {
+    if (etaText) {
+      return { label: 'ETA: ' + etaText, css: 'badge-eta', icon: '🚚' };
+    }
+    return { label: 'Out of Stock', css: 'badge-out', icon: '✕' };
+  }
+}
+
+// ===== 4. FETCH DATA =====
 async function fetchInventory() {
   const itemListElement = document.getElementById("itemList");
   let allItems = [];
@@ -46,12 +99,11 @@ async function fetchInventory() {
   }
 }
 
-// ===== 4. FILTER & SEARCH LOGIC =====
+// ===== 5. FILTER & SEARCH =====
 function filterAndSearch() {
   const query = document.getElementById("searchInput").value.trim().toLowerCase();
 
   filteredItems = inventoryItems.filter((item) => {
-    // 1. Apply Search Query (searches all fields)
     const searchable = [
       item.sku, item.description, item.barcode, item.category, 
       item.stock, item.status, item.eta, item.online, item.discontinued, 
@@ -61,29 +113,30 @@ function filterAndSearch() {
 
     const matchesSearch = searchable.includes(query);
 
-    // 2. Apply Quick Filters
     let matchesFilter = true;
-    const statusStr = (item.status || "").toLowerCase();
-    const stockStr = String(item.stock || "");
-    
-    if (currentFilter === "in-stock") {
-      matchesFilter = statusStr.includes("in stock") || parseInt(stockStr) > 0;
-    } else if (currentFilter === "out-of-stock") {
-      matchesFilter = statusStr.includes("out of stock") || parseInt(stockStr) <= 0;
-    } else if (currentFilter === "discontinued") {
-      matchesFilter = String(item.discontinued).toLowerCase() === "yes" || String(item.discontinued) === "1" || String(item.discontinued) === "true";
-    }
+    const isDisc = String(item.discontinued).toLowerCase() === 'yes' || String(item.discontinued) === '1' || String(item.discontinued) === 'true';
+    const isStocked = String(item.stock).toLowerCase() === 'yes' || parseInt(item.stock) > 0;
+
+    if (currentFilter === "in-stock") matchesFilter = isStocked;
+    else if (currentFilter === "out-of-stock") matchesFilter = !isStocked;
+    else if (currentFilter === "discontinued") matchesFilter = isDisc;
 
     return matchesSearch && matchesFilter;
   });
 
-  // Reset rendering
+  // BONOBO LOGIC: Push discontinued items to the bottom
+  filteredItems.sort((a, b) => {
+    const aDisc = String(a.discontinued).toLowerCase() === 'yes' || String(a.discontinued) === '1';
+    const bDisc = String(b.discontinued).toLowerCase() === 'yes' || String(b.discontinued) === '1';
+    return aDisc - bDisc; 
+  });
+
   displayedCount = 0;
   document.getElementById("itemList").innerHTML = "";
   renderNextBatch();
 }
 
-// ===== 5. RENDER CARDS =====
+// ===== 6. RENDER CARDS =====
 function renderNextBatch() {
   const container = document.getElementById("itemList");
   const loadMoreContainer = document.getElementById("loadMoreContainer");
@@ -101,36 +154,50 @@ function renderNextBatch() {
   const nextItems = filteredItems.slice(displayedCount, displayedCount + BATCH_SIZE);
   
   nextItems.forEach((item) => {
-    // Determine Status Color
-    let statusClass = "status-in-stock";
-    const statusStr = (item.status || "").toLowerCase();
-    if (statusStr.includes("out") || parseInt(item.stock) <= 0) statusClass = "status-out-of-stock";
-    if (statusStr.includes("low") || parseInt(item.stock) < 5) statusClass = "status-low";
+    // 1. Build BONOBO Location Data
+    const rawShelf = item.shelf ? String(item.shelf).trim() : '';
+    const { rack, level } = parseShelf(rawShelf);
+    const areaCode = getAreaCode(item.area, item.section);
+    const bin = item.bin ? String(item.bin).padStart(2, '0') : '00';
+    const locationID = `${areaCode.toUpperCase()}-${rack}-${level}-${bin}`;
+    
+    // 2. Build Badges
+    const badge = getStatusBadge(item.stock, item.eta, item.discontinued);
+    const isDisc = badge.label === 'D/C';
+    const cardClass = isDisc ? 'card-discontinued' : '';
 
-    const isDisc = String(item.discontinued).toLowerCase() === "yes" || String(item.discontinued) === "1";
-
+    // 3. Render
     const cardHTML = `
-      <div class="item-card">
+      <div class="item-card ${cardClass}">
         <div>
-          <div class="item-title">${item.description || "Unnamed Item"}</div>
+          <div class="item-image-container">
+            ${item.image_url 
+              ? `<img src="${item.image_url}" onerror="this.parentElement.innerHTML='<span style=\\'color:#64748b; font-size:0.8rem;\\'>No Image</span>'">` 
+              : `<span style="color:#64748b; font-size:0.8rem;">No Image</span>`}
+          </div>
+
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap: 8px;">
+            <div class="item-title">${item.description || "Unnamed Item"}</div>
+            <span class="status-badge ${badge.css}">${badge.icon} ${badge.label}</span>
+          </div>
+          
           <div class="item-sku">${item.sku || "NO SKU"}</div>
           
-          <div class="location-badge">
-            📍 ${item.area || "Basement"} • Sec ${item.section || "-"} • Shelf ${item.shelf || "-"} • Bin ${item.bin || "-"}
+          <div class="location-box">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <span class="location-id">${locationID}</span>
+              <span class="area-badge area-${areaCode}">${areaCode.toUpperCase()}</span>
+            </div>
+            
+            <div style="margin-bottom: 4px;">
+              ${item.category ? `<strong>Category:</strong> ${item.category}` : ''}
+            </div>
+            
+            <div style="color: #94a3b8; font-size: 0.8rem; margin-top: 6px; border-top: 1px solid #334155; padding-top: 6px;">
+              <div>Area: <span style="color:white;">${item.section || item.area || '—'}</span> · Shelf: <span style="color:white;">${item.shelf || '—'}</span> · Bin: <span style="color:white;">${item.bin || '—'}</span></div>
+              ${item.ssl_barcode ? `<div class="font-mono" style="color:#94a3b8;">SSL: ${item.ssl_barcode}</div>` : ''}
+            </div>
           </div>
-
-          <div class="badge-row">
-            ${item.category ? `<span class="badge">🏷️ ${item.category}</span>` : ""}
-            ${item.stock ? `<span class="badge">📦 Qty: ${item.stock}</span>` : ""}
-            <span class="badge ${statusClass}">${item.status || "Unknown"}</span>
-            ${isDisc ? `<span class="badge status-disc">🚫 Discontinued</span>` : ""}
-          </div>
-        </div>
-
-        <div style="font-size: 0.85rem; color: #cbd5e1; border-top: 1px solid var(--border); padding-top: 10px;">
-          ${item.barcode ? `<div><strong>Barcode:</strong> ${item.barcode}</div>` : ""}
-          ${item.supplier ? `<div><strong>Supplier:</strong> ${item.supplier}</div>` : ""}
-          ${item.note ? `<div style="color: var(--warning); margin-top: 6px;">📝 ${item.note}</div>` : ""}
         </div>
       </div>
     `;
@@ -139,7 +206,6 @@ function renderNextBatch() {
 
   displayedCount += nextItems.length;
 
-  // Show/Hide "Load More" button
   if (displayedCount < filteredItems.length) {
     loadMoreContainer.style.display = "block";
   } else {
@@ -147,30 +213,37 @@ function renderNextBatch() {
   }
 }
 
-// ===== 6. EVENT LISTENERS =====
-
-// Search input with Debounce (waits 300ms after typing stops to prevent lag)
+// ===== 7. EVENT LISTENERS =====
 let debounceTimer;
-document.getElementById("searchInput").addEventListener("input", () => {
+const searchInput = document.getElementById("searchInput");
+
+// Search with debounce
+searchInput.addEventListener("input", () => {
   clearTimeout(debounceTimer);
   debounceTimer = setTimeout(filterAndSearch, 300);
 });
 
-// Filter Buttons
+// Clear button
+document.getElementById("clearBtn").addEventListener("click", () => {
+  searchInput.value = "";
+  filterAndSearch();
+  searchInput.focus();
+});
+
+// Filters
 document.querySelectorAll(".filter-pill").forEach((btn) => {
   btn.addEventListener("click", (e) => {
-    // Update UI
     document.querySelectorAll(".filter-pill").forEach(b => b.classList.remove("active"));
     e.target.classList.add("active");
-    
-    // Update Logic
     currentFilter = e.target.dataset.filter;
     filterAndSearch();
   });
 });
 
-// Load More Button
 document.getElementById("loadMoreBtn").addEventListener("click", renderNextBatch);
 
-// ===== 7. INITIAL LOAD =====
-fetchInventory();
+// ===== 8. INITIAL LOAD =====
+window.onload = () => {
+  searchInput.focus(); // Auto-focus for barcode scanners!
+  fetchInventory();
+};
