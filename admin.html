@@ -64,107 +64,127 @@
   </div>
 
   <!-- ADMIN DASHBOARD -->
-  <!-- ADMIN DASHBOARD -->
   <div id="dashboard" class="admin-dashboard">
+    
+    <!-- TOP BAR -->
     <div class="top-bar">
       <h1>📦 Admin Dashboard</h1>
       <div>
-        <button id="addItemBtn" class="btn-primary" style="margin-right: 10px;">+ Add New Item</button>
         <button id="logoutBtn" class="filter-pill" style="border-color: #ef4444; color: #ef4444;">Logout</button>
       </div>
     </div>
 
-    <!-- NEW: Admin Search -->
-    <div class="search-container" style="margin-bottom: 20px; max-width: 100%;">
-      <input 
-        type="text" 
-        id="adminSearchInput" 
-        class="search-box" 
-        placeholder="🔍 Search all items to edit..." 
-        style="padding-right: 18px;"
-      />
+    <!-- TABS -->
+    <div class="tabs-container">
+      <button id="tab-btn-table" class="tab-btn active" onclick="switchTab('table')">📋 Master Table</button>
+      <button id="tab-btn-mapper" class="tab-btn" onclick="switchTab('mapper')">📍 Shelf Mapper</button>
     </div>
 
-    <div class="table-responsive">
-      <table>
-        <thead>
-          <tr>
-            <th>SKU</th>
-            <th>Description</th>
-            <th>Stock</th>
-            <th>Status</th>
-            <th>Location</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="adminTableBody">
-          <tr><td colspan="6" style="text-align: center;">Loading data...</td></tr>
-        </tbody>
-      </table>
+    <!-- ================= TAB 1: MASTER TABLE ================= -->
+    <div id="tab-table" class="tab-content">
+      <div class="top-bar" style="margin-bottom: 15px;">
+        <div class="search-container" style="margin: 0; max-width: 400px;">
+          <input type="text" id="adminSearchInput" class="search-box" placeholder="🔍 Search all items..." style="padding-right: 18px;" />
+        </div>
+        <button id="addItemBtn" class="btn-primary">+ Add New Item</button>
+      </div>
+
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>SKU</th>
+              <th>Description</th>
+              <th>Stock</th>
+              <th>Location</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="adminTableBody">
+            <tr><td colspan="5" style="text-align: center;">Loading data...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="text-align: center; margin: 20px 0;">
+        <button id="adminLoadMoreBtn" class="btn-primary" style="display: none;">Load More Items</button>
+      </div>
     </div>
-    
-    <!-- NEW: Load More Button -->
-    <div style="text-align: center; margin: 20px 0;">
-      <button id="adminLoadMoreBtn" class="btn-primary" style="display: none;">Load More Items</button>
+
+    <!-- ================= TAB 2: SHELF MAPPER ================= -->
+    <div id="tab-mapper" class="tab-content" style="display: none;">
+      
+      <!-- Step 1: Lock Shelf -->
+      <div class="mapper-section">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <h3 style="margin: 0; font-size: 0.9rem; color: var(--text-muted); text-transform: uppercase;">01. Shelf Location</h3>
+          <div>
+            <button id="qr-toggle-btn" class="filter-pill" style="font-size: 0.7rem; padding: 4px 8px;">📱 Generate QR</button>
+            <button id="unlock-shelf-btn" class="filter-pill" style="display: none; font-size: 0.7rem; padding: 4px 8px; border-color: #ef4444; color: #ef4444;">Reset / Unlock</button>
+          </div>
+        </div>
+        
+        <div style="display: flex; gap: 10px;">
+          <input type="text" id="shelf-lock-input" placeholder="SCAN OR TYPE SHELF ID..." autocomplete="off" class="search-box" style="flex: 1; text-transform: uppercase; font-family: monospace; font-weight: bold;" />
+          <input type="text" id="shelf-area-input" placeholder="Area (e.g. PI)" class="search-box" style="width: 100px; text-transform: uppercase;" />
+          <input type="text" id="shelf-section-input" placeholder="Section" class="search-box" style="width: 120px;" />
+        </div>
+
+        <!-- Locked State Info -->
+        <div id="shelf-info-display" style="display: none; margin-top: 15px; padding: 15px; background: #0f172a; border-radius: 8px; border: 1px solid var(--border);">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <p style="margin: 0; font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Active Shelf</p>
+              <p id="active-shelf-label" style="margin: 0; font-size: 1.5rem; font-weight: bold; color: var(--accent); font-family: monospace;">--</p>
+            </div>
+            <div style="text-align: right;">
+              <p style="margin: 0; font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Next Target Bin</p>
+              <p id="next-bin-label" style="margin: 0; font-size: 2rem; font-weight: bold; color: var(--success);">--</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- QR Panel -->
+        <div id="qr-panel" style="display: none; margin-top: 15px; padding: 15px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border); text-align: center;">
+          <div id="qr-code-display" style="display: flex; justify-content: center; margin-bottom: 10px;"></div>
+          <button id="print-qr-btn" class="btn-primary" style="width: 100%;">Print QR Label</button>
+        </div>
+      </div>
+
+      <!-- Step 2: Scan Item -->
+      <div id="item-scan-section" class="mapper-section" style="opacity: 0.5; pointer-events: none;">
+        <h3 style="margin: 0 0 10px 0; font-size: 0.9rem; color: var(--text-muted); text-transform: uppercase;">02. Scan or Search Item</h3>
+        <input type="text" id="mapper-item-input" placeholder="Search by SKU, Description, or Barcode..." autocomplete="off" class="search-box" style="width: 100%; border-color: var(--accent);" />
+        
+        <div id="mapper-results" style="margin-top: 15px; display: flex; flex-direction: column; gap: 10px; max-height: 400px; overflow-y: auto;"></div>
+      </div>
+      
+      <div id="mapper-status-log" style="text-align: center; font-weight: bold; font-size: 0.9rem; margin-top: 15px; min-height: 20px; color: var(--text-muted);">
+        System Ready
+      </div>
+
     </div>
   </div>
 
-
-  
-
-  <!-- ADD/EDIT MODAL -->
+  <!-- ADD/EDIT MODAL (From previous step) -->
   <div id="itemModal" class="modal-overlay">
     <div class="modal-content">
       <h2 id="modalTitle" style="margin-top: 0;">Add New Item</h2>
       <form id="itemForm">
         <input type="hidden" id="itemId" />
-        
         <div class="form-grid">
-          <div class="form-group">
-            <label>SKU * (Required)</label>
-            <input type="text" id="sku" required />
+          <div class="form-group"><label>SKU *</label><input type="text" id="sku" required /></div>
+          <div class="form-group"><label>Description *</label><input type="text" id="description" required /></div>
+          <div class="form-group"><label>Barcode</label><input type="text" id="barcode" /></div>
+          <div class="form-group"><label>Category</label><input type="text" id="category" /></div>
+          <div class="form-group"><label>Stock (Yes/No)</label>
+            <select id="stock"><option value="Yes">Yes</option><option value="No">No</option></select>
           </div>
-          <div class="form-group">
-            <label>Description * (Required)</label>
-            <input type="text" id="description" required />
-          </div>
-          <div class="form-group">
-            <label>Barcode</label>
-            <input type="text" id="barcode" />
-          </div>
-          <div class="form-group">
-            <label>Category</label>
-            <input type="text" id="category" />
-          </div>
-          <div class="form-group">
-            <label>Stock (Yes/No)</label>
-            <select id="stock">
-              <option value="Yes">Yes</option>
-              <option value="No">No</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Status</label>
-            <input type="text" id="status" placeholder="e.g. On Sale" />
-          </div>
-          <div class="form-group">
-            <label>Area</label>
-            <input type="text" id="area" />
-          </div>
-          <div class="form-group">
-            <label>Shelf</label>
-            <input type="text" id="shelf" />
-          </div>
-          <div class="form-group">
-            <label>Bin</label>
-            <input type="text" id="bin" />
-          </div>
-          <div class="form-group">
-            <label>Image URL</label>
-            <input type="url" id="image_url" />
-          </div>
+          <div class="form-group"><label>Status</label><input type="text" id="status" /></div>
+          <div class="form-group"><label>Area</label><input type="text" id="area" /></div>
+          <div class="form-group"><label>Shelf</label><input type="text" id="shelf" /></div>
+          <div class="form-group"><label>Bin</label><input type="text" id="bin" /></div>
+          <div class="form-group"><label>Image URL</label><input type="url" id="image_url" /></div>
         </div>
-
         <div style="display: flex; justify-content: flex-end; gap: 10px;">
           <button type="button" id="cancelModalBtn" class="filter-pill">Cancel</button>
           <button type="submit" class="btn-primary" id="saveItemBtn">Save Item</button>
@@ -173,6 +193,8 @@
     </div>
   </div>
 
+  <!-- QR Code Library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="admin.js"></script>
 </body>
 </html>
