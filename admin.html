@@ -64,6 +64,7 @@
   </div>
 
   <!-- ADMIN DASHBOARD -->
+  <!-- ADMIN DASHBOARD -->
   <div id="dashboard" class="admin-dashboard">
     <div class="top-bar">
       <h1>📦 Admin Dashboard</h1>
@@ -71,6 +72,17 @@
         <button id="addItemBtn" class="btn-primary" style="margin-right: 10px;">+ Add New Item</button>
         <button id="logoutBtn" class="filter-pill" style="border-color: #ef4444; color: #ef4444;">Logout</button>
       </div>
+    </div>
+
+    <!-- NEW: Admin Search -->
+    <div class="search-container" style="margin-bottom: 20px; max-width: 100%;">
+      <input 
+        type="text" 
+        id="adminSearchInput" 
+        class="search-box" 
+        placeholder="🔍 Search all items to edit..." 
+        style="padding-right: 18px;"
+      />
     </div>
 
     <div class="table-responsive">
@@ -81,7 +93,7 @@
             <th>Description</th>
             <th>Stock</th>
             <th>Status</th>
-            <th>Bin/Location</th>
+            <th>Location</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -90,7 +102,15 @@
         </tbody>
       </table>
     </div>
+    
+    <!-- NEW: Load More Button -->
+    <div style="text-align: center; margin: 20px 0;">
+      <button id="adminLoadMoreBtn" class="btn-primary" style="display: none;">Load More Items</button>
+    </div>
   </div>
+
+
+  
 
   <!-- ADD/EDIT MODAL -->
   <div id="itemModal" class="modal-overlay">
