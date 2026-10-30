@@ -153,6 +153,10 @@
     <!-- Named shelf label (Pottery Isle / Boiler Room / etc.) -->
     <div id="display-named-shelf"
          style="margin-top: 8px; font-size: 0.85rem; color: var(--accent); font-weight: bold;"></div>
+    <button id="next-shelf-btn" class="btn-primary"
+        style="width: 100%; margin-top: 14px; padding: 14px;">
+  ✓ Done — Scan Next Shelf
+</button>
   </div>
 
   <!-- QR Panel -->
