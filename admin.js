@@ -195,6 +195,7 @@ document.getElementById("adminSearchInput").addEventListener("input", () => {
   window.adminSearchTimer = setTimeout(filterAndRenderAdmin, 300);
 });
 
+
 // ===== 8. SHELF MAPPER =====
 document.getElementById("shelf-lock-input").addEventListener("change", async (e) => {
   const parsed = parseShelfId(e.target.value);
@@ -223,10 +224,13 @@ document.getElementById("shelf-lock-input").addEventListener("change", async (e)
   const named = await getNamedShelf(parsed.fullId);
 
   e.target.disabled = true;
-  document.getElementById("unlock-shelf-btn").style.display = "inline-block";
   document.getElementById("shelf-info-display").style.display = "block";
   document.getElementById("active-shelf-label").textContent = lockedShelf;
   document.getElementById("next-bin-label").textContent = String(nextBin).padStart(2, "0");
+
+  // Show the pill only if the HTML still has it (harmless if not)
+  const unlockBtn = document.getElementById("unlock-shelf-btn");
+  if (unlockBtn) unlockBtn.style.display = "inline-block";
 
   const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
   setText("display-floor", parsed.floor || "—");
@@ -249,7 +253,12 @@ document.getElementById("shelf-lock-input").addEventListener("change", async (e)
   );
 });
 
-document.getElementById("unlock-shelf-btn").addEventListener("click", () => {
+/**
+ * End the current shelf session and return to "ready for next shelf" state.
+ * Does NOT touch the database — items already assigned keep their shelf/bin.
+ * Called by both the "✓ Done — Scan Next Shelf" button and the small pill.
+ */
+function endShelfSession() {
   lockedShelf = null;
   lockedShelfParsed = null;
   nextBin = null;
@@ -258,8 +267,14 @@ document.getElementById("unlock-shelf-btn").addEventListener("click", () => {
   shelfInput.disabled = false;
   shelfInput.value = "";
 
-  document.getElementById("unlock-shelf-btn").style.display = "none";
-  document.getElementById("shelf-info-display").style.display = "none";
+  const unlockBtn = document.getElementById("unlock-shelf-btn");
+  if (unlockBtn) unlockBtn.style.display = "none";
+
+  const infoDisplay = document.getElementById("shelf-info-display");
+  if (infoDisplay) infoDisplay.style.display = "none";
+
+  const qrPanel = document.getElementById("qr-panel");
+  if (qrPanel) qrPanel.style.display = "none";
 
   const scanSection = document.getElementById("item-scan-section");
   scanSection.style.opacity = "0.5";
@@ -267,8 +282,19 @@ document.getElementById("unlock-shelf-btn").addEventListener("click", () => {
   mapperItemInput.value = "";
   mapperResults.innerHTML = "";
 
-  updateLog("Shelf unlocked. Ready for next location.", "var(--text-muted)");
-});
+  updateLog("Ready for next shelf — scan or type shelf ID.", "var(--text-muted)");
+
+  // Auto-focus + scroll so a barcode scanner lands in the right field
+  shelfInput.focus();
+  shelfInput.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+// Wire both buttons (whichever exist — safe if you removed one)
+const nextShelfBtn = document.getElementById("next-shelf-btn");
+if (nextShelfBtn) nextShelfBtn.addEventListener("click", endShelfSession);
+
+const unlockBtnEl = document.getElementById("unlock-shelf-btn");
+if (unlockBtnEl) unlockBtnEl.addEventListener("click", endShelfSession);
 
 let mapperSearchTimer = null;
 let mapperSearchToken = 0;
