@@ -114,41 +114,54 @@
     <div id="tab-mapper" class="tab-content" style="display: none;">
       
       <!-- Step 1: Lock Shelf -->
-      <div class="mapper-section">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-          <h3 style="margin: 0; font-size: 0.9rem; color: var(--text-muted); text-transform: uppercase;">01. Shelf Location</h3>
-          <div>
-            <button id="qr-toggle-btn" class="filter-pill" style="font-size: 0.7rem; padding: 4px 8px;">📱 Generate QR</button>
-            <button id="unlock-shelf-btn" class="filter-pill" style="display: none; font-size: 0.7rem; padding: 4px 8px; border-color: #ef4444; color: #ef4444;">Reset / Unlock</button>
-          </div>
-        </div>
-        
-        <div style="display: flex; gap: 10px;">
-          <input type="text" id="shelf-lock-input" placeholder="SCAN OR TYPE SHELF ID..." autocomplete="off" class="search-box" style="flex: 1; text-transform: uppercase; font-family: monospace; font-weight: bold;" />
-          <input type="text" id="shelf-area-input" placeholder="Area (e.g. PI)" class="search-box" style="width: 100px; text-transform: uppercase;" />
-          <input type="text" id="shelf-section-input" placeholder="Section" class="search-box" style="width: 120px;" />
-        </div>
+<!-- Step 1: Lock Shelf -->
+<div class="mapper-section">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+    <h3 style="margin: 0; font-size: 0.9rem; color: var(--text-muted); text-transform: uppercase;">01. Shelf Location</h3>
+    <div>
+      <button id="qr-toggle-btn" class="filter-pill" style="font-size: 0.7rem; padding: 4px 8px;">📱 Generate QR</button>
+      <button id="unlock-shelf-btn" class="filter-pill" style="display: none; font-size: 0.7rem; padding: 4px 8px; border-color: #ef4444; color: #ef4444;">Reset / Unlock</button>
+    </div>
+  </div>
 
-        <!-- Locked State Info -->
-        <div id="shelf-info-display" style="display: none; margin-top: 15px; padding: 15px; background: #0f172a; border-radius: 8px; border: 1px solid var(--border);">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-              <p style="margin: 0; font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Active Shelf</p>
-              <p id="active-shelf-label" style="margin: 0; font-size: 1.5rem; font-weight: bold; color: var(--accent); font-family: monospace;">--</p>
-            </div>
-            <div style="text-align: right;">
-              <p style="margin: 0; font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Next Target Bin</p>
-              <p id="next-bin-label" style="margin: 0; font-size: 2rem; font-weight: bold; color: var(--success);">--</p>
-            </div>
-          </div>
-        </div>
+  <input type="text" id="shelf-lock-input"
+         placeholder="SCAN OR TYPE SHELF ID (e.g. B.7.3 or B_7_3)…"
+         autocomplete="off" class="search-box"
+         style="width: 100%; text-transform: uppercase; font-family: monospace; font-weight: bold;" />
 
-        <!-- QR Panel -->
-        <div id="qr-panel" style="display: none; margin-top: 15px; padding: 15px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border); text-align: center;">
-          <div id="qr-code-display" style="display: flex; justify-content: center; margin-bottom: 10px;"></div>
-          <button id="print-qr-btn" class="btn-primary" style="width: 100%;">Print QR Label</button>
-        </div>
+  <!-- Locked State Info -->
+  <div id="shelf-info-display" style="display: none; margin-top: 15px; padding: 15px; background: #0f172a; border-radius: 8px; border: 1px solid var(--border);">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+      <div>
+        <p style="margin: 0; font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Active Shelf</p>
+        <p id="active-shelf-label" style="margin: 0; font-size: 1.5rem; font-weight: bold; color: var(--accent); font-family: monospace;">--</p>
       </div>
+      <div style="text-align: right;">
+        <p style="margin: 0; font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Next Target Bin</p>
+        <p id="next-bin-label" style="margin: 0; font-size: 2rem; font-weight: bold; color: var(--success);">--</p>
+      </div>
+    </div>
+
+    <!-- Derived from shelf via Postgres generated columns -->
+    <div id="derived-location"
+         style="margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 0.85rem; color: var(--text-muted); display: flex; flex-wrap: wrap; gap: 14px;">
+      <span>Floor: <strong id="display-floor" style="color: white;">—</strong></span>
+      <span>Aisle: <strong id="display-aisle" style="color: white;">—</strong></span>
+      <span>Bay: <strong id="display-bay" style="color: white;">—</strong></span>
+      <span>Shelf: <strong id="display-shelf-number" style="color: white;">—</strong></span>
+    </div>
+
+    <!-- Named shelf label (Pottery Isle / Boiler Room / etc.) -->
+    <div id="display-named-shelf"
+         style="margin-top: 8px; font-size: 0.85rem; color: var(--accent); font-weight: bold;"></div>
+  </div>
+
+  <!-- QR Panel -->
+  <div id="qr-panel" style="display: none; margin-top: 15px; padding: 15px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border); text-align: center;">
+    <div id="qr-code-display" style="display: flex; justify-content: center; margin-bottom: 10px;"></div>
+    <button id="print-qr-btn" class="btn-primary" style="width: 100%;">Print QR Label</button>
+  </div>
+</div>
 
       <!-- Step 2: Scan Item -->
       <div id="item-scan-section" class="mapper-section" style="opacity: 0.5; pointer-events: none;">
