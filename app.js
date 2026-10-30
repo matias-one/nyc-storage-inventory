@@ -198,7 +198,7 @@ function renderNextBatch() {
     // Floor badge — derive a short code; unknown → no color
     const floorLower = (loc.floor || "").toLowerCase();
     const areaCode = floorLower.includes("basement") ? "BR"
-                    : floorLower.includes("str") || floorLower.includes("ceramic") ? "CR"
+                    : floorLower.includes("main") || floorLower.includes("MAIN") ? "M"
                     : floorLower.includes("pottery") ? "PI"
                     : floorLower.includes("candle") ? "CI"
                     : "default";
