@@ -14,7 +14,7 @@ let lockedShelfParsed = null;
 let nextBin = null;
 
 // ===== 3. HELPERS =====
-const ROOM_BY_SEP = { ".": "Basement", "_": "MainFloor" };
+const ROOM_BY_SEP = { ".": "Basement", "_": "Main" };
 
 function parseShelfId(raw) {
   const id = String(raw || "").trim().toUpperCase();
