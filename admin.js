@@ -14,12 +14,17 @@ let lockedShelfParsed = null;
 let nextBin = null;
 
 // ===== 3. HELPERS =====
-const ROOM_BY_SEP = { ".": "Basement", "_": "STR" };
+const ROOM_BY_SEP = { ".": "Basement", "_": "MainFloor" };
 
 function parseShelfId(raw) {
   const id = String(raw || "").trim().toUpperCase();
   if (!id) return null;
-  const sep = id.includes(".") ? "." : id.includes("_") ? "_" : null;
+  const lastDot   = id.lastIndexOf(".");
+const lastUnder = id.lastIndexOf("_");
+const sep = lastUnder === -1 && lastDot === -1 ? null
+          : lastUnder === -1 ? "."
+          : lastDot   === -1 ? "_"
+          : (lastUnder > lastDot ? "_" : ".");
   if (!sep) return null;
   const parts = id.split(sep);
   if (parts.length < 2 || !parts[0]) return null;
