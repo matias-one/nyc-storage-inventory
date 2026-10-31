@@ -308,20 +308,65 @@ async function bulkCommit() {
     (meta.willUpdate ? ` (${meta.willUpdate} updates, ${meta.willInsert} inserts)` : "") +
     (meta.willSkip ? `, skipped ${meta.willSkip} discontinued new` : "") +
     (failed ? `. ⚠️ ${failed} FAILED.` : ".");
-  bulkLog(summary, failed ? "var(--warning)" : "var(--success)");
+  bulkLog(summary, failed ? "var(--warning)" : "var(--success)", failed ? 12000 : 8000);
+
+  // Full success → clear the form so it's ready for the next batch.
+  // Partial failure → keep the textarea so the user can inspect & retry.
+  if (failed === 0) {
+    document.getElementById("bulk-text").value = "";
+    document.getElementById("bulk-supplier").value = "";
+  }
+
   if (typeof fetchAllAdminData === "function") fetchAllAdminData();
 }
 
-function bulkLog(msg, color) {
-  const el = document.getElementById("bulk-log");
-  if (!el) return;
-  el.textContent = msg;
-  el.style.color = color || "var(--text-muted)";
+// ============================================================
+// 5. Clear button
+// ============================================================
+function bulkClear() {
+  document.getElementById("bulk-text").value = "";
+  document.getElementById("bulk-supplier").value = "";
+  document.getElementById("bulk-preview").innerHTML = "";
+  const commitBtn = document.getElementById("bulk-commit-btn");
+  if (commitBtn) commitBtn.style.display = "none";
+  pendingBulkPayload = null;
+  pendingBulkMeta = null;
+  bulkLog("Cleared. Ready for next batch.", "var(--text-muted)", 4000);
+  document.getElementById("bulk-text").focus();
 }
 
+// ============================================================
+// 6. Log helper
+// ============================================================
+let bulkLogTimer = null;
+function bulkLog(msg, color, autoClearMs = 0) {
+  const el = document.getElementById("bulk-log");
+  if (!el) return;
+  clearTimeout(bulkLogTimer);
+  el.textContent = msg;
+  el.style.color = color || "var(--text-muted)";
+  el.style.opacity = "1";
+  el.style.transition = "opacity 0.8s ease";
+
+  if (autoClearMs > 0) {
+    bulkLogTimer = setTimeout(() => {
+      el.style.opacity = "0";
+      setTimeout(() => {
+        el.textContent = "";
+        el.style.opacity = "1";
+      }, 800);
+    }, autoClearMs);
+  }
+}
+
+// ============================================================
+// 7. Wiring
+// ============================================================
 document.addEventListener("DOMContentLoaded", () => {
   const p = document.getElementById("bulk-preview-btn");
   const c = document.getElementById("bulk-commit-btn");
+  const x = document.getElementById("bulk-clear-btn");
   if (p) p.addEventListener("click", bulkPreview);
   if (c) c.addEventListener("click", bulkCommit);
+  if (x) x.addEventListener("click", bulkClear);
 });
