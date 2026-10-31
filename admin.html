@@ -192,10 +192,11 @@
       placeholder="Paste the full supplier catalog text here…"
       style="width: 100%; font-family: monospace; font-size: 0.85rem; resize: vertical;"></textarea>
 
-    <div style="display: flex; gap: 10px; margin-top: 12px;">
-      <button id="bulk-preview-btn" class="btn-primary" style="flex: 1;">Preview Changes</button>
-      <button id="bulk-commit-btn" class="btn-primary" style="flex: 1; display: none; background: var(--success);">Commit to Database</button>
-    </div>
+<div style="display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap;">
+  <button id="bulk-preview-btn" class="btn-primary" style="flex: 1; min-width: 140px;">Preview Changes</button>
+  <button id="bulk-commit-btn" class="btn-primary" style="flex: 1; min-width: 140px; display: none; background: var(--success);">Commit to Database</button>
+  <button id="bulk-clear-btn" class="filter-pill" style="padding: 12px 18px; min-width: 100px;">Clear</button>
+</div>
 
     <div id="bulk-preview" style="margin-top: 15px;"></div>
     <div id="bulk-log" style="margin-top: 10px; font-size: 0.85rem; font-weight: bold; min-height: 20px;"></div>
