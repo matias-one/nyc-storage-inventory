@@ -552,6 +552,16 @@ function bulkClear() {
   document.getElementById("bulk-text").value = "";
   const supplierEl = document.getElementById("bulk-supplier");
   if (supplierEl) supplierEl.value = "";
+
+  // Reset file picker
+  const fileInput = document.getElementById("bulk-file");
+  if (fileInput) fileInput.value = "";
+  const fileLabel = document.getElementById("bulk-file-name");
+  if (fileLabel) {
+    fileLabel.textContent = "No file selected";
+    fileLabel.style.color = "var(--text-muted)";
+  }
+
   document.getElementById("bulk-preview").innerHTML = "";
   const commitBtn = document.getElementById("bulk-commit-btn");
   if (commitBtn) commitBtn.style.display = "none";
@@ -588,6 +598,40 @@ function bulkLog(msg, color, autoClearMs = 0) {
 // 7. Wiring
 // ============================================================
 document.addEventListener("DOMContentLoaded", () => {
+  // File picker → loads file contents into the textarea
+const fileBtn = document.getElementById("bulk-file-btn");
+const fileInput = document.getElementById("bulk-file");
+const fileLabel = document.getElementById("bulk-file-name");
+
+if (fileBtn && fileInput) {
+  fileBtn.addEventListener("click", () => fileInput.click());
+
+  fileInput.addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Defense in depth — browser picker filters, but verify anyway
+    if (!/\.(csv|txt)$/i.test(file.name)) {
+      bulkLog("Please choose a .csv or .txt file.", "var(--warning)", 5000);
+      fileInput.value = "";
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      document.getElementById("bulk-text").value = ev.target.result;
+      if (fileLabel) {
+        fileLabel.textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+        fileLabel.style.color = "var(--success)";
+      }
+      bulkLog(`Loaded: ${file.name} — click Preview to parse.`, "var(--accent)", 5000);
+    };
+    reader.onerror = () => {
+      bulkLog("Failed to read file. Try again or paste manually.", "var(--danger)");
+    };
+    reader.readAsText(file);
+  });
+}
   const p = document.getElementById("bulk-preview-btn");
   const c = document.getElementById("bulk-commit-btn");
   const x = document.getElementById("bulk-clear-btn");
