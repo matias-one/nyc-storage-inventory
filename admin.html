@@ -197,9 +197,17 @@
 </div>
 
     <label style="display:block; font-size:0.8rem; color:var(--text-muted); margin-bottom:6px;">Paste ERP Text (Dataset A)</label>
-    <textarea id="bulk-text" class="search-box" rows="10"
-      placeholder="Paste the full supplier catalog text here…"
-      style="width: 100%; font-family: monospace; font-size: 0.85rem; resize: vertical;"></textarea>
+<div style="display: flex; gap: 10px; align-items: center; margin-bottom: 8px; flex-wrap: wrap;">
+  <input type="file" id="bulk-file" accept=".csv,.txt" style="display: none;">
+  <button type="button" class="filter-pill" id="bulk-file-btn" style="padding: 10px 16px;">📁 Choose File</button>
+  <span id="bulk-file-name" style="font-size: 0.8rem; color: var(--text-muted);">No file selected</span>
+</div>
+
+<label style="display:block; font-size:0.8rem; color:var(--text-muted); margin-bottom:6px;">Or paste text below</label>
+
+<textarea id="bulk-text" class="search-box" rows="10"
+  placeholder="Paste here, or use Choose File above…"
+  style="width: 100%; font-family: monospace; font-size: 0.85rem; resize: vertical;"></textarea>
 
 <div style="display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap;">
   <button id="bulk-preview-btn" class="btn-primary" style="flex: 1; min-width: 140px;">Preview Changes</button>
