@@ -78,6 +78,7 @@
     <div class="tabs-container">
       <button id="tab-btn-table" class="tab-btn active" onclick="switchTab('table')">📋 Master Table</button>
       <button id="tab-btn-mapper" class="tab-btn" onclick="switchTab('mapper')">📍 Shelf Mapper</button>
+      <button id="tab-btn-bulk" class="tab-btn" onclick="switchTab('bulk')">📥 Bulk Import</button>
     </div>
 
     <!-- ================= TAB 1: MASTER TABLE ================= -->
@@ -179,6 +180,27 @@
       </div>
 
     </div>
+    <div id="tab-bulk" class="tab-content" style="display: none;">
+  <div class="mapper-section">
+    <h3 style="margin: 0 0 12px 0; font-size: 0.9rem; color: var(--text-muted); text-transform: uppercase;">Supplier Batch Import</h3>
+
+    <label style="display:block; font-size:0.8rem; color:var(--text-muted); margin-bottom:6px;">Supplier Code</label>
+    <input id="bulk-supplier" type="text" class="search-box" placeholder="e.g. RASH" style="width: 100%; margin-bottom: 12px;">
+
+    <label style="display:block; font-size:0.8rem; color:var(--text-muted); margin-bottom:6px;">Paste ERP Text (Dataset A)</label>
+    <textarea id="bulk-text" class="search-box" rows="10"
+      placeholder="Paste the full supplier catalog text here…"
+      style="width: 100%; font-family: monospace; font-size: 0.85rem; resize: vertical;"></textarea>
+
+    <div style="display: flex; gap: 10px; margin-top: 12px;">
+      <button id="bulk-preview-btn" class="btn-primary" style="flex: 1;">Preview Changes</button>
+      <button id="bulk-commit-btn" class="btn-primary" style="flex: 1; display: none; background: var(--success);">Commit to Database</button>
+    </div>
+
+    <div id="bulk-preview" style="margin-top: 15px;"></div>
+    <div id="bulk-log" style="margin-top: 10px; font-size: 0.85rem; font-weight: bold; min-height: 20px;"></div>
+  </div>
+</div>
   </div>
 
   <!-- ADD/EDIT MODAL (From previous step) -->
@@ -212,5 +234,6 @@
   <!-- QR Code Library -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="admin.js"></script>
+  <script src="bulk.js"></script>
 </body>
 </html>
