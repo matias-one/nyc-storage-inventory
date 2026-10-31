@@ -174,6 +174,80 @@ function parseMultiLineRecordA(recordLines) {
   return cells;
 }
 
+
+
+// ============================================================
+// 1b. Shopify CSV parser
+// ============================================================
+const SHOPIFY_SUFFIX_REGEX = /-(bundle|case|pack|set|ea|ct|pk)$/i;
+
+function parseShopifyCsv(csvText) {
+  // Strip UTF-8 BOM (Shopify exports usually include it)
+  const text = String(csvText || "").replace(/^\uFEFF/, "");
+  const rows = parseCsvSimple(text);
+  if (rows.length < 2) throw new Error("CSV is empty or missing header.");
+
+  const headers = rows[0].map(h => h.trim());
+  const getIdx = (name, required = true) => {
+    const i = headers.indexOf(name);
+    if (i === -1 && required) throw new Error(`CSV missing required header: "${name}"`);
+    return i;
+  };
+
+  const iSku     = getIdx("Variant SKU");
+  const iBarcode = getIdx("Variant Barcode", false);
+  const iImage   = getIdx("Image Src", false);
+  const iTitle   = getIdx("Title", false);
+  const iOpt1    = getIdx("Option1 Value", false);
+  const iOpt2    = getIdx("Option2 Value", false);
+  const iOpt3    = getIdx("Option3 Value", false);
+
+  const map = {};  // base SKU -> { barcode, image_url, description }
+  for (let r = 1; r < rows.length; r++) {
+    const row = rows[r];
+    const rawSku = String(row[iSku] || "").trim();
+    if (!rawSku) continue;
+    const baseSku = rawSku.replace(SHOPIFY_SUFFIX_REGEX, "");
+    if (!baseSku || map[baseSku]) continue;  // first variant per base SKU wins
+
+    const title = iTitle   >= 0 ? String(row[iTitle]   || "").trim() : "";
+    const opt1  = iOpt1    >= 0 ? String(row[iOpt1]    || "").trim() : "";
+    const opt2  = iOpt2    >= 0 ? String(row[iOpt2]    || "").trim() : "";
+    const opt3  = iOpt3    >= 0 ? String(row[iOpt3]    || "").trim() : "";
+    const opts  = [opt1, opt2, opt3].filter(v => v);
+    const description = opts.length ? `${title} - ${opts.join(" / ")}` : title;
+
+    map[baseSku] = {
+      sku: baseSku,
+      barcode:   iBarcode >= 0 ? String(row[iBarcode] || "").trim() : "",
+      image_url: iImage   >= 0 ? String(row[iImage]   || "").trim() : "",
+      description
+    };
+  }
+  return Object.values(map);
+}
+
+// Minimal CSV parser — handles quoted fields, embedded commas/newlines
+function parseCsvSimple(text) {
+  const rows = [];
+  let row = [], field = "", inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"' && text[i + 1] === '"') { field += '"'; i++; }
+      else if (c === '"') inQuotes = false;
+      else field += c;
+    } else {
+      if (c === '"') inQuotes = true;
+      else if (c === ',') { row.push(field); field = ""; }
+      else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ""; }
+      else if (c !== '\r') field += c;
+    }
+  }
+  if (field || row.length) { row.push(field); rows.push(row); }
+  return rows;
+}
+
 // ============================================================
 // 2. Map 17-cell row → Supabase inventory payload
 // ============================================================
@@ -205,9 +279,24 @@ function rowToPayload(cells, supplierCode) {
 }
 
 // ============================================================
-// 3. Preview
+// 3. Router — dispatches based on selected mode
 // ============================================================
+let pendingBulk = null;   // { mode: "dataset-a"|"shopify", ... }
+
 async function bulkPreview() {
+  const mode = document.getElementById("bulk-mode")?.value || "dataset-a";
+  return mode === "shopify" ? previewShopify() : previewDatasetA();
+}
+
+async function bulkCommit() {
+  if (!pendingBulk) return bulkLog("Click Preview first.", "var(--warning)");
+  return pendingBulk.mode === "shopify" ? commitShopify() : commitDatasetA();
+}
+
+// ============================================================
+// 3a. Dataset A preview
+// ============================================================
+async function previewDatasetA() {
   const text = document.getElementById("bulk-text").value;
   const supplierCode = document.getElementById("bulk-supplier").value.trim();
   if (!text.trim()) return bulkLog("Paste ERP text first.", "var(--warning)");
@@ -222,7 +311,6 @@ async function bulkPreview() {
   const valid = parsed.filter(p => p.payload);
   if (valid.length === 0) return bulkLog("No valid records parsed.", "var(--warning)");
 
-  // Look up existing SKUs
   const skus = valid.map(v => v.payload.sku);
   const existing = new Set();
   for (let i = 0; i < skus.length; i += 500) {
@@ -235,8 +323,11 @@ async function bulkPreview() {
   const willInsert = valid.filter(v => !existing.has(v.payload.sku) && v.payload.discontinued !== "Yes");
   const willSkip   = valid.filter(v => !existing.has(v.payload.sku) && v.payload.discontinued === "Yes");
 
-  pendingBulkPayload = [...willUpdate, ...willInsert].map(v => v.payload);
-  pendingBulkMeta = { willUpdate: willUpdate.length, willInsert: willInsert.length, willSkip: willSkip.length, total: valid.length, parseErrors };
+  pendingBulk = {
+    mode: "dataset-a",
+    rows: [...willUpdate, ...willInsert].map(v => v.payload),
+    meta: { willUpdate: willUpdate.length, willInsert: willInsert.length, willSkip: willSkip.length, total: valid.length, parseErrors }
+  };
 
   document.getElementById("bulk-preview").innerHTML = `
     <div style="padding: 12px; background: #0f172a; border-radius: 8px; border: 1px solid var(--border);">
@@ -273,21 +364,22 @@ async function bulkPreview() {
     </div>
   `;
   document.getElementById("bulk-commit-btn").style.display = "inline-block";
-  bulkLog(`Ready — ${pendingBulkPayload.length} records will be committed.`, "var(--accent)", 6000);
+  bulkLog(`Ready — ${pendingBulk.rows.length} records will be committed.`, "var(--accent)", 6000);
 }
 
 // ============================================================
-// 4. Commit
+// 4a. Dataset A commit
 // ============================================================
-async function bulkCommit() {
-  if (!pendingBulkPayload) return bulkLog("Click Preview first.", "var(--warning)");
+async function commitDatasetA() {
+  const rows = pendingBulk.rows;
+  const meta = pendingBulk.meta;
   const btn = document.getElementById("bulk-commit-btn");
   btn.disabled = true;
-  bulkLog(`Committing ${pendingBulkPayload.length} records… do not close this tab.`, "var(--warning)");
+  bulkLog(`Committing ${rows.length} records… do not close this tab.`, "var(--warning)");
 
   let processed = 0, failed = 0;
-  for (let i = 0; i < pendingBulkPayload.length; i += BULK_CHUNK_SIZE) {
-    const chunk = pendingBulkPayload.slice(i, i + BULK_CHUNK_SIZE);
+  for (let i = 0; i < rows.length; i += BULK_CHUNK_SIZE) {
+    const chunk = rows.slice(i, i + BULK_CHUNK_SIZE);
     const { error } = await db.from("inventory").upsert(chunk, { onConflict: "sku" });
     if (error) {
       failed += chunk.length;
@@ -297,9 +389,7 @@ async function bulkCommit() {
     }
   }
 
-  const meta = pendingBulkMeta || {};
-  pendingBulkPayload = null;
-  pendingBulkMeta = null;
+  pendingBulk = null;
   document.getElementById("bulk-preview").innerHTML = "";
   btn.style.display = "none";
   btn.disabled = false;
@@ -310,27 +400,139 @@ async function bulkCommit() {
     (failed ? `. ⚠️ ${failed} FAILED.` : ".");
   bulkLog(summary, failed ? "var(--warning)" : "var(--success)", failed ? 12000 : 8000);
 
-  // Full success → clear the form so it's ready for the next batch.
-  // Partial failure → keep the textarea so the user can inspect & retry.
   if (failed === 0) {
     document.getElementById("bulk-text").value = "";
     document.getElementById("bulk-supplier").value = "";
   }
-
   if (typeof fetchAllAdminData === "function") fetchAllAdminData();
 }
 
 // ============================================================
-// 5. Clear button
+// 3b. Shopify preview
+// ============================================================
+async function previewShopify() {
+  const text = document.getElementById("bulk-text").value;
+  if (!text.trim()) return bulkLog("Paste a Shopify CSV first.", "var(--warning)");
+
+  let rows;
+  try { rows = parseShopifyCsv(text); }
+  catch (e) { return bulkLog("Parse failed: " + e.message, "var(--danger)"); }
+  if (!rows.length) return bulkLog("No valid SKUs found in CSV.", "var(--warning)");
+
+  const skus = rows.map(r => r.sku);
+  const existing = {};
+  for (let i = 0; i < skus.length; i += 500) {
+    const { data, error } = await db.from("inventory")
+      .select("sku, barcode, image_url")
+      .in("sku", skus.slice(i, i + 500));
+    if (error) return bulkLog("Lookup failed: " + error.message, "var(--danger)");
+    (data || []).forEach(d => { existing[d.sku] = { barcode: d.barcode || "", image_url: d.image_url || "" }; });
+  }
+
+  const updates = [];
+  const inserts = [];
+  let imgUpdates = 0, barcodeFills = 0, unchanged = 0;
+
+  for (const row of rows) {
+    if (existing[row.sku]) {
+      const cur = existing[row.sku];
+      const payload = { sku: row.sku };
+      if (row.image_url && row.image_url !== cur.image_url) { payload.image_url = row.image_url; imgUpdates++; }
+      if (row.barcode && !cur.barcode)                    { payload.barcode = row.barcode;    barcodeFills++; }
+      if (Object.keys(payload).length > 1) updates.push(payload);
+      else unchanged++;
+    } else {
+      inserts.push({
+        sku: row.sku,
+        description: row.description || null,
+        barcode: row.barcode || null,
+        image_url: row.image_url || null,
+        stock: "No",
+        status: "New",
+        online: "No",
+        discontinued: "No",
+        supplier: "Shopify"
+      });
+    }
+  }
+
+  pendingBulk = {
+    mode: "shopify",
+    updates,
+    inserts,
+    meta: { imgUpdates, barcodeFills, unchanged, willInsert: inserts.length, total: rows.length }
+  };
+
+  document.getElementById("bulk-preview").innerHTML = `
+    <div style="padding: 12px; background: #0f172a; border-radius: 8px; border: 1px solid var(--border);">
+      <div style="font-weight: bold; margin-bottom: 8px;">Preview — Shopify CSV</div>
+      <div style="color: var(--text-muted); font-size: 0.9rem;">
+        Parsed: <strong>${rows.length}</strong> base SKUs<br>
+        Image URL will update: <strong style="color: var(--info);">${imgUpdates}</strong> items<br>
+        Missing barcode will be filled: <strong style="color: var(--info);">${barcodeFills}</strong> items<br>
+        No changes needed: <strong>${unchanged}</strong> items<br>
+        New SKUs (inserted as "Shopify"): <strong style="color: var(--warning);">${inserts.length}</strong>
+        ${inserts.length ? `<br><span style="font-size:0.8rem;">⚠ These SKUs aren't in inventory yet. They'll appear as "New" / out of stock.</span>` : ""}
+      </div>
+    </div>
+  `;
+  document.getElementById("bulk-commit-btn").style.display = "inline-block";
+  bulkLog(`Ready — ${updates.length} updates, ${inserts.length} new SKUs.`, "var(--accent)", 6000);
+}
+
+// ============================================================
+// 4b. Shopify commit
+// ============================================================
+async function commitShopify() {
+  const { updates, inserts, meta } = pendingBulk;
+  const btn = document.getElementById("bulk-commit-btn");
+  btn.disabled = true;
+  bulkLog(`Enriching ${updates.length} items, inserting ${inserts.length} new…`, "var(--warning)");
+
+  let updated = 0, inserted = 0, failed = 0;
+
+  for (let i = 0; i < updates.length; i += BULK_CHUNK_SIZE) {
+    const chunk = updates.slice(i, i + BULK_CHUNK_SIZE);
+    const { error } = await db.from("inventory").upsert(chunk, { onConflict: "sku" });
+    if (error) { failed += chunk.length; bulkLog(`Update chunk failed: ${error.message}`, "var(--danger)"); }
+    else updated += chunk.length;
+  }
+
+  if (inserts.length) {
+    for (let i = 0; i < inserts.length; i += BULK_CHUNK_SIZE) {
+      const chunk = inserts.slice(i, i + BULK_CHUNK_SIZE);
+      const { error } = await db.from("inventory").upsert(chunk, { onConflict: "sku", ignoreDuplicates: true });
+      if (error) { failed += chunk.length; bulkLog(`Insert chunk failed: ${error.message}`, "var(--danger)"); }
+      else inserted += chunk.length;
+    }
+  }
+
+  pendingBulk = null;
+  document.getElementById("bulk-preview").innerHTML = "";
+  btn.style.display = "none";
+  btn.disabled = false;
+
+  const summary = `✅ Enriched ${updated} items` +
+    (meta.barcodeFills ? ` (${meta.barcodeFills} barcodes filled)` : "") +
+    (inserted ? `, inserted ${inserted} new SKUs` : "") +
+    (failed ? `. ⚠️ ${failed} FAILED.` : ".");
+  bulkLog(summary, failed ? "var(--warning)" : "var(--success)", failed ? 12000 : 8000);
+
+  if (failed === 0) document.getElementById("bulk-text").value = "";
+  if (typeof fetchAllAdminData === "function") fetchAllAdminData();
+}
+
+// ============================================================
+// 5. Clear
 // ============================================================
 function bulkClear() {
   document.getElementById("bulk-text").value = "";
-  document.getElementById("bulk-supplier").value = "";
+  const supplierEl = document.getElementById("bulk-supplier");
+  if (supplierEl) supplierEl.value = "";
   document.getElementById("bulk-preview").innerHTML = "";
   const commitBtn = document.getElementById("bulk-commit-btn");
   if (commitBtn) commitBtn.style.display = "none";
-  pendingBulkPayload = null;
-  pendingBulkMeta = null;
+  pendingBulk = null;
   bulkLog("Cleared. Ready for next batch.", "var(--text-muted)", 4000);
   document.getElementById("bulk-text").focus();
 }
@@ -369,4 +571,13 @@ document.addEventListener("DOMContentLoaded", () => {
   if (p) p.addEventListener("click", bulkPreview);
   if (c) c.addEventListener("click", bulkCommit);
   if (x) x.addEventListener("click", bulkClear);
+
+  const modeSel = document.getElementById("bulk-mode");
+  if (modeSel) {
+    modeSel.addEventListener("change", () => {
+      const group = document.getElementById("bulk-supplier-group");
+      if (group) group.style.display = modeSel.value === "dataset-a" ? "block" : "none";
+      bulkClear();
+    });
+  }
 });
