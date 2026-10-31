@@ -72,17 +72,23 @@ const mapperLog = document.getElementById("mapper-status-log");
 
 // ===== 5. TAB SWITCHING =====
 window.switchTab = (tabName) => {
-  document.getElementById("tab-table").style.display = "none";
-  document.getElementById("tab-mapper").style.display = "none";
-  document.getElementById("tab-btn-table").classList.remove("active");
-  document.getElementById("tab-btn-mapper").classList.remove("active");
+  // Hide all panels and deactivate all tab buttons
+  ["table", "mapper", "bulk"].forEach(t => {
+    const panel = document.getElementById("tab-" + t);
+    const btn = document.getElementById("tab-btn-" + t);
+    if (panel) panel.style.display = "none";
+    if (btn) btn.classList.remove("active");
+  });
+
+  // Show the requested panel and activate its button
+  const targetPanel = document.getElementById("tab-" + tabName);
+  const targetBtn = document.getElementById("tab-btn-" + tabName);
+  if (targetPanel) targetPanel.style.display = "block";
+  if (targetBtn) targetBtn.classList.add("active");
+
+  // Side effects per tab
   if (tabName === "table") {
-    document.getElementById("tab-table").style.display = "block";
-    document.getElementById("tab-btn-table").classList.add("active");
     fetchAllAdminData();
-  } else {
-    document.getElementById("tab-mapper").style.display = "block";
-    document.getElementById("tab-btn-mapper").classList.add("active");
   }
 };
 
