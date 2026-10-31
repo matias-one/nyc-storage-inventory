@@ -273,7 +273,7 @@ async function bulkPreview() {
     </div>
   `;
   document.getElementById("bulk-commit-btn").style.display = "inline-block";
-  bulkLog(`Ready — ${pendingBulkPayload.length} records will be committed.`, "var(--accent)");
+  bulkLog(`Ready — ${pendingBulkPayload.length} records will be committed.`, "var(--accent)", 6000);
 }
 
 // ============================================================
