@@ -408,7 +408,7 @@ async function commitDatasetA() {
 }
 
 // ============================================================
-// 3b. Shopify preview
+// 3b. Shopify preview (enrichment only — never inserts)
 // ============================================================
 async function previewShopify() {
   const text = document.getElementById("bulk-text").value;
@@ -430,80 +430,103 @@ async function previewShopify() {
   }
 
   const updates = [];
-  const inserts = [];
-  let imgUpdates = 0, barcodeFills = 0, unchanged = 0;
+  const matched = [];   // for the preview table
+  let imgUpdates = 0, barcodeFills = 0, unchanged = 0, skipped = 0;
 
   for (const row of rows) {
-    if (existing[row.sku]) {
-      const cur = existing[row.sku];
-      const payload = { sku: row.sku };
-      if (row.image_url && row.image_url !== cur.image_url) { payload.image_url = row.image_url; imgUpdates++; }
-      if (row.barcode && !cur.barcode)                    { payload.barcode = row.barcode;    barcodeFills++; }
-      if (Object.keys(payload).length > 1) updates.push(payload);
-      else unchanged++;
+    if (!existing[row.sku]) { skipped++; continue; }
+
+    const cur = existing[row.sku];
+    const payload = { sku: row.sku };
+    const willImg = row.image_url && row.image_url !== cur.image_url;
+    const willBc  = row.barcode && !cur.barcode;
+
+    if (willImg) { payload.image_url = row.image_url; imgUpdates++; }
+    if (willBc)  { payload.barcode = row.barcode;      barcodeFills++; }
+
+    if (Object.keys(payload).length > 1) {
+      updates.push(payload);
+      matched.push({ sku: row.sku, img: willImg, bc: willBc });
     } else {
-      inserts.push({
-        sku: row.sku,
-        description: row.description || null,
-        barcode: row.barcode || null,
-        image_url: row.image_url || null,
-        stock: "No",
-        status: "New",
-        online: "No",
-        discontinued: "No",
-        supplier: "Shopify"
-      });
+      unchanged++;
     }
   }
 
   pendingBulk = {
     mode: "shopify",
     updates,
-    inserts,
-    meta: { imgUpdates, barcodeFills, unchanged, willInsert: inserts.length, total: rows.length }
+    meta: { imgUpdates, barcodeFills, unchanged, skipped, total: rows.length }
   };
 
-  document.getElementById("bulk-preview").innerHTML = `
+  const summary = `
     <div style="padding: 12px; background: #0f172a; border-radius: 8px; border: 1px solid var(--border);">
-      <div style="font-weight: bold; margin-bottom: 8px;">Preview — Shopify CSV</div>
+      <div style="font-weight: bold; margin-bottom: 8px;">Preview — Shopify CSV (Enrichment Only)</div>
       <div style="color: var(--text-muted); font-size: 0.9rem;">
-        Parsed: <strong>${rows.length}</strong> base SKUs<br>
-        Image URL will update: <strong style="color: var(--info);">${imgUpdates}</strong> items<br>
-        Missing barcode will be filled: <strong style="color: var(--info);">${barcodeFills}</strong> items<br>
-        No changes needed: <strong>${unchanged}</strong> items<br>
-        New SKUs (inserted as "Shopify"): <strong style="color: var(--warning);">${inserts.length}</strong>
-        ${inserts.length ? `<br><span style="font-size:0.8rem;">⚠ These SKUs aren't in inventory yet. They'll appear as "New" / out of stock.</span>` : ""}
+        Parsed from CSV: <strong>${rows.length}</strong> base SKUs<br>
+        Matched to inventory: <strong style="color: var(--success);">${rows.length - skipped}</strong><br>
+        Not in inventory (skipped): <strong style="color: var(--text-muted);">${skipped}</strong><br>
+        <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border);">
+          Image URL will update: <strong style="color: var(--info);">${imgUpdates}</strong> items<br>
+          Missing barcode will be filled: <strong style="color: var(--info);">${barcodeFills}</strong> items<br>
+          Already current (no change): <strong>${unchanged}</strong> items<br>
+        </div>
       </div>
+      ${updates.length ? `
+        <div style="margin-top: 12px; max-height: 300px; overflow-y: auto; font-size: 0.8rem;">
+          <table style="width:100%; border-collapse:collapse;">
+            <thead><tr style="background:#1e293b; color:var(--text-muted);">
+              <th style="padding:6px; text-align:left;">SKU</th>
+              <th style="padding:6px; text-align:center;">Image</th>
+              <th style="padding:6px; text-align:center;">Barcode</th>
+            </tr></thead>
+            <tbody>
+              ${matched.slice(0, 20).map(m => `
+                <tr style="border-bottom:1px solid var(--border);">
+                  <td style="padding:6px; font-family:monospace;">${escapeHtml(m.sku)}</td>
+                  <td style="padding:6px; text-align:center; color:${m.img ? 'var(--success)' : 'var(--text-muted)'};">${m.img ? "✓" : "—"}</td>
+                  <td style="padding:6px; text-align:center; color:${m.bc ? 'var(--success)' : 'var(--text-muted)'};">${m.bc ? "✓" : "—"}</td>
+                </tr>`).join("")}
+              ${matched.length > 20 ? `<tr><td colspan="3" style="padding:6px; color:var(--text-muted); text-align:center;">… ${matched.length - 20} more</td></tr>` : ""}
+            </tbody>
+          </table>
+        </div>` : ""}
     </div>
   `;
-  document.getElementById("bulk-commit-btn").style.display = "inline-block";
-  bulkLog(`Ready — ${updates.length} updates, ${inserts.length} new SKUs.`, "var(--accent)", 6000);
+
+  document.getElementById("bulk-preview").innerHTML = summary;
+
+  // Only show commit if there's actually something to update
+  if (updates.length > 0) {
+    document.getElementById("bulk-commit-btn").style.display = "inline-block";
+    bulkLog(`Ready — ${updates.length} items will be enriched.`, "var(--accent)", 6000);
+  } else {
+    document.getElementById("bulk-commit-btn").style.display = "none";
+    bulkLog(`Nothing to update — all ${rows.length - skipped} matched items are current.`, "var(--text-muted)", 6000);
+  }
 }
 
 // ============================================================
-// 4b. Shopify commit
+// 4b. Shopify commit (enrichment only — never inserts)
 // ============================================================
 async function commitShopify() {
-  const { updates, inserts, meta } = pendingBulk;
+  const { updates, meta } = pendingBulk;
+  if (!updates || updates.length === 0) {
+    return bulkLog("Nothing to commit.", "var(--warning)");
+  }
+
   const btn = document.getElementById("bulk-commit-btn");
   btn.disabled = true;
-  bulkLog(`Enriching ${updates.length} items, inserting ${inserts.length} new…`, "var(--warning)");
+  bulkLog(`Enriching ${updates.length} items…`, "var(--warning)");
 
-  let updated = 0, inserted = 0, failed = 0;
-
+  let updated = 0, failed = 0;
   for (let i = 0; i < updates.length; i += BULK_CHUNK_SIZE) {
     const chunk = updates.slice(i, i + BULK_CHUNK_SIZE);
     const { error } = await db.from("inventory").upsert(chunk, { onConflict: "sku" });
-    if (error) { failed += chunk.length; bulkLog(`Update chunk failed: ${error.message}`, "var(--danger)"); }
-    else updated += chunk.length;
-  }
-
-  if (inserts.length) {
-    for (let i = 0; i < inserts.length; i += BULK_CHUNK_SIZE) {
-      const chunk = inserts.slice(i, i + BULK_CHUNK_SIZE);
-      const { error } = await db.from("inventory").upsert(chunk, { onConflict: "sku", ignoreDuplicates: true });
-      if (error) { failed += chunk.length; bulkLog(`Insert chunk failed: ${error.message}`, "var(--danger)"); }
-      else inserted += chunk.length;
+    if (error) {
+      failed += chunk.length;
+      bulkLog(`Chunk ${Math.floor(i / BULK_CHUNK_SIZE) + 1} failed: ${error.message}`, "var(--danger)");
+    } else {
+      updated += chunk.length;
     }
   }
 
@@ -514,7 +537,7 @@ async function commitShopify() {
 
   const summary = `✅ Enriched ${updated} items` +
     (meta.barcodeFills ? ` (${meta.barcodeFills} barcodes filled)` : "") +
-    (inserted ? `, inserted ${inserted} new SKUs` : "") +
+    (meta.imgUpdates ? ` (${meta.imgUpdates} image URLs updated)` : "") +
     (failed ? `. ⚠️ ${failed} FAILED.` : ".");
   bulkLog(summary, failed ? "var(--warning)" : "var(--success)", failed ? 12000 : 8000);
 
