@@ -3,9 +3,10 @@
   "name": "NYC Shop Basement Locator",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/2897/2897785.png",
+      "src": "./logo.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     }
   ],
   "start_url": "./index.html",
