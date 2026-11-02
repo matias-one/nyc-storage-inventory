@@ -128,20 +128,43 @@ document.getElementById("logoutBtn").addEventListener("click", async () => {
 // ===== 7. MASTER TABLE =====
 async function fetchAllAdminData() {
   tableBody.innerHTML = `<tr><td colspan="5" style="text-align:center;">Loading data...</td></tr>`;
-  const { data, error } = await db.from("inventory").select("*").order("id", { ascending: false }).limit(1000);
-  if (error) {
-    tableBody.innerHTML = `<tr><td colspan="5" style="color:red; text-align:center;">Error: ${escapeHtml(error.message)}</td></tr>`;
-    return;
+  const PAGE_SIZE = 1000;
+  let allItems = [];
+  let from = 0;
+
+  try {
+    while (true) {
+      const { data, error } = await db
+        .from("inventory")
+        .select("*")
+        .order("id", { ascending: false })
+        .range(from, from + PAGE_SIZE - 1);
+
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+
+      allItems = allItems.concat(data);
+      if (data.length < PAGE_SIZE) break;   // last page
+      from += PAGE_SIZE;
+    }
+
+    allAdminItems = allItems;
+    console.log(`✅ Fetched ${allAdminItems.length} admin rows.`);
+    filterAndRenderAdmin();
+  } catch (err) {
+    tableBody.innerHTML = `<tr><td colspan="5" style="color:red; text-align:center;">Error: ${escapeHtml(err.message)}</td></tr>`;
   }
-  allAdminItems = data || [];
-  filterAndRenderAdmin();
 }
 
 function filterAndRenderAdmin() {
   const query = document.getElementById("adminSearchInput").value.trim().toLowerCase();
   const filtered = allAdminItems.filter(item => {
-    const searchable = [item.sku, item.description, item.barcode, item.category, item.status, item.shelf]
-      .map(v => String(v || "")).join(" ").toLowerCase();
+const searchable = [
+  item.sku, item.description, item.barcode, item.category,
+  item.supplier,
+  item.ssl_barcode,
+  item.shelf_number
+].map(v => String(v || "")).join(" ").toLowerCase();
     return searchable.includes(query);
   });
   displayedCount = 0;
