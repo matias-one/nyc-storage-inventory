@@ -181,29 +181,53 @@ function renderNextAdminBatch(filteredItems) {
   }
   const nextItems = filteredItems.slice(displayedCount, displayedCount + BATCH_SIZE);
 
-  nextItems.forEach(item => {
-    const isStocked = String(item.stock).toLowerCase() === "yes";
-    const safeSku = escapeHtml(item.sku);
-    const safeDesc = escapeHtml(item.description || "—");
-    const safeArea = escapeHtml(item.floor || item.area || "");
-    const safeShelf = escapeHtml(item.shelf || "");
-    const safeBin = escapeHtml(item.bin || "");
-    const rowHTML = `
-      <tr>
-        <td><strong>${safeSku}</strong></td>
-        <td>${safeDesc}</td>
-        <td>
-          <button data-id="${item.id}" data-stock="${escapeHtml(item.stock || 'No')}" class="js-toggle-stock"
-                  style="background: ${isStocked ? '#22c55e' : '#ef4444'}; color: #000; border: none; padding: 4px 12px; border-radius: 12px; font-weight: bold; cursor: pointer;">
-            ${isStocked ? 'Yes' : 'No'}
-          </button>
-        </td>
-        <td>${safeArea} ${safeShelf} ${item.bin ? "Bin " + safeBin : ""}</td>
-        <td><button data-id="${item.id}" class="js-edit" style="background:none; border:none; cursor:pointer; color:#38bdf8; font-weight:bold;">Edit</button></td>
-      </tr>
-    `;
-    tableBody.insertAdjacentHTML("beforeend", rowHTML);
-  });
+nextItems.forEach(item => {
+  const isStocked = String(item.stock).toLowerCase() === "yes";
+  const safeSku = escapeHtml(item.sku);
+  const safeDesc = escapeHtml(item.description || "—");
+  const safeArea = escapeHtml(item.floor || item.area || "");
+  const safeShelf = escapeHtml(item.shelf || "");
+  const safeBin = escapeHtml(item.bin || "");
+  const safeImg = escapeHtml(item.image_url || "");
+
+  // Thumbnail cell — 40×40 box + SKU side by side
+  const thumbCell = `
+    <td>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <div style="width: 40px; height: 40px; flex-shrink: 0;
+                    background: #0f172a; border-radius: 6px; overflow: hidden;
+                    border: 1px solid var(--border);
+                    display: flex; align-items: center; justify-content: center;">
+          ${item.image_url
+            ? `<img src="${safeImg}" alt="" loading="lazy" referrerpolicy="no-referrer"
+                    style="width: 100%; height: 100%; object-fit: contain;"
+                    onerror="this.style.display='none'">`
+            : `<span style="color: #475569; font-size: 11px;">—</span>`}
+        </div>
+        <strong style="font-family: monospace; font-size: 0.85rem;">${safeSku}</strong>
+      </div>
+    </td>
+  `;
+
+  const rowHTML = `
+    <tr>
+      ${thumbCell}
+      <td>${safeDesc}</td>
+      <td>
+        <button data-id="${item.id}" data-stock="${escapeHtml(item.stock || 'No')}" class="js-toggle-stock"
+                style="background: ${isStocked ? '#22c55e' : '#ef4444'}; color: #000; border: none; padding: 4px 12px; border-radius: 12px; font-weight: bold; cursor: pointer;">
+          ${isStocked ? 'Yes' : 'No'}
+        </button>
+      </td>
+      <td>${safeArea} ${safeShelf} ${item.bin ? "Bin " + safeBin : ""}</td>
+      <td>
+        <button data-id="${item.id}" class="js-edit"
+                style="background:none; border:none; cursor:pointer; color: #38bdf8; font-weight: bold;">Edit</button>
+      </td>
+    </tr>
+  `;
+  tableBody.insertAdjacentHTML("beforeend", rowHTML);
+});
 
   tableBody.querySelectorAll(".js-toggle-stock").forEach(btn =>
     btn.addEventListener("click", () => toggleStock(parseInt(btn.dataset.id), btn.dataset.stock)));
