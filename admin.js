@@ -163,6 +163,7 @@ const searchable = [
   item.sku, item.description, item.barcode, item.category,
   item.supplier,
   item.ssl_barcode,
+  item.shelf,
   item.shelf_number
 ].map(v => String(v || "")).join(" ").toLowerCase();
     return searchable.includes(query);
