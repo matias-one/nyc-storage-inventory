@@ -295,4 +295,16 @@ main {
 
 
 
-
+.admin-logo-link {
+  text-decoration: none;
+  display: inline-block;
+  transition: opacity 0.15s ease;
+}
+.admin-logo-link:hover {
+  opacity: 0.75;
+}
+.admin-logo-img {
+  height: 56px;
+  width: auto;
+  display: block;
+}
