@@ -322,6 +322,7 @@ window.editItem = function (id) {
   document.getElementById("sku").value = item.sku || "";
   document.getElementById("description").value = item.description || "";
   document.getElementById("barcode").value = item.barcode || "";
+  document.getElementById("ssl_barcode").value = item.ssl_barcode || "";
   document.getElementById("category").value = item.category || "";
   document.getElementById("stock").value = item.stock || "No";
   document.getElementById("status").value = item.status || "";
@@ -402,6 +403,7 @@ itemForm.addEventListener("submit", async (e) => {
     sku: document.getElementById("sku").value.trim(),
     description: document.getElementById("description").value.trim(),
     barcode: document.getElementById("barcode").value.trim() || null,
+    ssl_barcode: document.getElementById("ssl_barcode").value.trim() || null,
     category: document.getElementById("category").value.trim() || null,
     stock: document.getElementById("stock").value,
     status: document.getElementById("status").value.trim() || null,
