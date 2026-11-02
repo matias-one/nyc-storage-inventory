@@ -249,6 +249,233 @@ document.getElementById("adminSearchInput").addEventListener("input", () => {
 });
 
 
+
+// ===== 7b. MODAL — Add / Edit Item =====
+
+// Inject image preview block into the modal (once) so we don't depend on HTML edits
+function ensureImagePreview() {
+  if (document.getElementById("modal-img-preview")) return;
+  const form = document.getElementById("itemForm");
+  if (!form) return;
+  const grid = form.querySelector(".form-grid");
+  if (!grid) return;
+  const wrap = document.createElement("div");
+  wrap.id = "modal-img-preview";
+  wrap.style.cssText = "margin-bottom: 15px; padding: 12px; background: #0f172a; border-radius: 8px; border: 1px solid var(--border); display: flex; justify-content: center; align-items: center; min-height: 100px;";
+  wrap.innerHTML = '<span style="color:#475569; font-size:0.8rem;">No image URL</span>';
+  grid.parentNode.insertBefore(wrap, grid);
+}
+
+function previewModalImage(url) {
+  const container = document.getElementById("modal-img-preview");
+  if (!container) return;
+  container.innerHTML = "";
+  const safeUrl = String(url || "").trim();
+  if (!safeUrl) {
+    const span = document.createElement("span");
+    span.style.color = "#475569";
+    span.style.fontSize = "0.8rem";
+    span.textContent = "No image URL";
+    container.appendChild(span);
+    return;
+  }
+  const img = document.createElement("img");
+  img.src = safeUrl;
+  img.alt = "";
+  img.referrerPolicy = "no-referrer";
+  img.style.maxWidth = "220px";
+  img.style.maxHeight = "220px";
+  img.style.objectFit = "contain";
+  img.onerror = () => {
+    img.remove();
+    const span = document.createElement("span");
+    span.style.color = "#ef4444";
+    span.style.fontSize = "0.75rem";
+    span.textContent = "Could not load image";
+    container.appendChild(span);
+  };
+  container.appendChild(img);
+}
+
+function openModal(title) {
+  ensureImagePreview();
+  document.getElementById("modalTitle").textContent = title;
+  itemModal.style.display = "flex";
+}
+
+function closeModal() {
+  itemModal.style.display = "none";
+  itemForm.reset();
+  document.getElementById("itemId").value = "";
+  const prev = document.getElementById("modal-img-preview");
+  if (prev) prev.innerHTML = '<span style="color:#475569; font-size:0.8rem;">No image URL</span>';
+}
+
+// Populate form for editing an existing item
+window.editItem = function (id) {
+  const item = allAdminItems.find(i => i.id === id);
+  if (!item) {
+    alert("Item not found — refresh and try again.");
+    return;
+  }
+  document.getElementById("itemId").value = item.id;
+  document.getElementById("sku").value = item.sku || "";
+  document.getElementById("description").value = item.description || "";
+  document.getElementById("barcode").value = item.barcode || "";
+  document.getElementById("category").value = item.category || "";
+  document.getElementById("stock").value = item.stock || "No";
+  document.getElementById("status").value = item.status || "";
+
+  const areaEl = document.getElementById("area");
+  if (areaEl) areaEl.value = item.floor || item.area || "";
+
+  document.getElementById("shelf").value = item.shelf || "";
+  document.getElementById("bin").value = item.bin || "";
+  document.getElementById("image_url").value = item.image_url || "";
+
+  previewModalImage(item.image_url);
+  openModal("Edit Item");
+};
+
+// Toggle stock inline (updates DB + button without re-rendering the whole table)
+window.toggleStock = async function (id, currentStock) {
+  const newStock = String(currentStock).toLowerCase() === "yes" ? "No" : "Yes";
+  const btn = document.querySelector(`button.js-toggle-stock[data-id="${id}"]`);
+  if (btn) btn.disabled = true;
+
+  const { error } = await db.from("inventory").update({ stock: newStock }).eq("id", id);
+  if (btn) btn.disabled = false;
+
+  if (error) {
+    alert("Failed to update stock: " + error.message);
+    return;
+  }
+
+  const item = allAdminItems.find(i => i.id === id);
+  if (item) item.stock = newStock;
+
+  if (btn) {
+    const isStocked = newStock === "Yes";
+    btn.dataset.stock = newStock;
+    btn.textContent = isStocked ? "Yes" : "No";
+    btn.style.background = isStocked ? "#22c55e" : "#ef4444";
+  }
+};
+
+// Add New Item button
+const addItemBtn = document.getElementById("addItemBtn");
+if (addItemBtn) {
+  addItemBtn.addEventListener("click", () => {
+    closeModal();
+    document.getElementById("stock").value = "Yes";
+    previewModalImage("");
+    openModal("Add New Item");
+  });
+}
+
+// Cancel button
+const cancelModalBtn = document.getElementById("cancelModalBtn");
+if (cancelModalBtn) cancelModalBtn.addEventListener("click", closeModal);
+
+// Live image URL preview (debounced)
+let imageUrlTimer = null;
+const imageUrlInput = document.getElementById("image_url");
+if (imageUrlInput) {
+  imageUrlInput.addEventListener("input", (e) => {
+    clearTimeout(imageUrlTimer);
+    imageUrlTimer = setTimeout(() => previewModalImage(e.target.value), 400);
+  });
+}
+
+// Save handler (form submit — the Save button is type=submit)
+itemForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const saveBtn = document.getElementById("saveItemBtn");
+  const originalText = saveBtn.textContent;
+  saveBtn.disabled = true;
+  saveBtn.textContent = "Saving...";
+
+  const id = document.getElementById("itemId").value;
+  const isEdit = !!id;
+
+  const payload = {
+    sku: document.getElementById("sku").value.trim(),
+    description: document.getElementById("description").value.trim(),
+    barcode: document.getElementById("barcode").value.trim() || null,
+    category: document.getElementById("category").value.trim() || null,
+    stock: document.getElementById("stock").value,
+    status: document.getElementById("status").value.trim() || null,
+    shelf: document.getElementById("shelf").value.trim() || null,
+    bin: document.getElementById("bin").value.trim() || null,
+    image_url: document.getElementById("image_url").value.trim() || null
+  };
+
+  if (!payload.sku) {
+    alert("SKU is required.");
+    saveBtn.disabled = false;
+    saveBtn.textContent = originalText;
+    return;
+  }
+  if (!payload.description) {
+    alert("Description is required.");
+    saveBtn.disabled = false;
+    saveBtn.textContent = originalText;
+    return;
+  }
+
+  let result;
+  if (isEdit) {
+    // Prevent SKU collision if the user changed it
+    const { data: conflicting } = await db
+      .from("inventory")
+      .select("id")
+      .eq("sku", payload.sku)
+      .neq("id", id)
+      .maybeSingle();
+    if (conflicting) {
+      alert(`Another item already uses SKU "${payload.sku}" (id ${conflicting.id}).`);
+      saveBtn.disabled = false;
+      saveBtn.textContent = originalText;
+      return;
+    }
+    result = await db.from("inventory").update(payload).eq("id", id);
+  } else {
+    const { data: existing } = await db
+      .from("inventory")
+      .select("id")
+      .eq("sku", payload.sku)
+      .maybeSingle();
+    if (existing) {
+      alert(`SKU "${payload.sku}" already exists (id ${existing.id}). Edit that item instead.`);
+      saveBtn.disabled = false;
+      saveBtn.textContent = originalText;
+      return;
+    }
+    result = await db.from("inventory").insert(payload);
+  }
+
+  saveBtn.disabled = false;
+  saveBtn.textContent = originalText;
+
+  if (result.error) {
+    alert("Save failed: " + result.error.message);
+    return;
+  }
+
+  closeModal();
+  fetchAllAdminData();
+});
+
+// Close on backdrop click and Esc
+itemModal.addEventListener("click", (e) => {
+  if (e.target === itemModal) closeModal();
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && itemModal.style.display === "flex") closeModal();
+});
+
+
+
 // ===== 8. SHELF MAPPER =====
 document.getElementById("shelf-lock-input").addEventListener("change", async (e) => {
   const parsed = parseShelfId(e.target.value);
