@@ -163,6 +163,27 @@
 </button>
   </div>
 
+  <!-- Current shelf contents (populated on lock) -->
+<div id="shelf-contents-panel" style="display: none; margin-top: 15px; padding: 15px; background: #0f172a; border-radius: 8px; border: 1px solid var(--border);">
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 8px; flex-wrap: wrap;">
+    <div style="font-size: 0.9rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold;">
+      📦 On this shelf: <span id="shelf-contents-count" style="color: var(--accent);">0</span>
+    </div>
+    <button id="clear-shelf-btn" class="filter-pill"
+            style="font-size: 0.7rem; padding: 4px 10px; border-color: #ef4444; color: #ef4444;">
+      🗑️ Clear Shelf
+    </button>
+  </div>
+  <div id="shelf-contents-list"
+       style="display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto;"></div>
+  <div id="shelf-contents-empty"
+       style="text-align: center; padding: 15px; color: var(--text-muted); font-size: 0.85rem; display: none;">
+    This shelf is empty — scan items below to add them.
+  </div>
+</div>
+
+  
+
   <!-- QR Panel -->
   <div id="qr-panel" style="display: none; margin-top: 15px; padding: 15px; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border); text-align: center;">
     <div id="qr-code-display" style="display: flex; justify-content: center; margin-bottom: 10px;"></div>
