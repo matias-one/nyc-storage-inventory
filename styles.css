@@ -180,8 +180,8 @@ main {
 .item-image-container img {
   width: 100%;
   height: 100%;
- /* object-fit: contain;*/
-  object-fit: cover;   /* ← only change */
+  object-fit: contain;
+ /* object-fit: cover;   /* ← only change */
 }
 
 /* Stock badge layered on top-right of the image */
