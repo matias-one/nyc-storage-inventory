@@ -210,39 +210,32 @@ function renderNextBatch() {
     const safeSsl = escapeHtml(item.ssl_barcode || "");
     const safeNamed = escapeHtml(namedLine);
 
-    const cardHTML = `
-      <div class="item-card ${cardClass}">
-        <div>
-          <div class="item-image-container">
-            ${item.image_url
-              ? `<img src="${safeImage}" alt="${safeDesc}" onerror="this.style.display='none';this.parentElement.insertAdjacentHTML('beforeend','<span style=\\'color:#64748b;font-size:0.8rem;\\'>No Image</span>')">`
-              : `<span style="color:#64748b; font-size:0.8rem;">No Image</span>`}
-          </div>
+const cardHTML = `
+  <div class="item-card ${cardClass}">
+    <div class="item-image-container">
+      ${item.image_url
+        ? `<img src="${safeImage}" alt="${safeDesc}" onerror="this.style.display='none';this.parentElement.insertAdjacentHTML('beforeend','<span style=\\'color:#64748b;font-size:0.8rem;\\'>No Image</span>')">`
+        : `<span style="color:#64748b; font-size:0.8rem;">No Image</span>`}
+      <span class="status-badge ${badge.css} status-overlay">${badge.icon} ${badge.label}</span>
+    </div>
 
-          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap: 8px;">
-            <div class="item-title">${safeDesc}</div>
-            <span class="status-badge ${badge.css}">${badge.icon} ${badge.label}</span>
-          </div>
+    <div class="item-sku-primary">${safeSku}</div>
+    <div class="item-title-secondary">${safeDesc}</div>
 
-          <div class="item-sku">${safeSku}</div>
-
-          <div class="location-box">
-            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:8px;">
-              <div style="flex:1; min-width:0;">
-                <div style="font-weight: bold; color: white; font-size: 0.95rem;">${humanLocation}</div>
-                ${rawLine ? `<div style="font-family: monospace; font-size: 0.8rem; color: #94a3b8; margin-top: 2px;">${rawLine}</div>` : ""}
-                ${namedLine ? `<div style="font-size: 0.8rem; color: #38bdf8; margin-top: 4px;">📍 ${safeNamed}</div>` : ""}
-              </div>
-              <span class="area-badge area-${areaCode}">${areaCode.toUpperCase()}</span>
-            </div>
-
-            ${safeCat ? `<div><strong>Category:</strong> ${safeCat}</div>` : ""}
-
-            ${safeSsl ? `<div style="color:#94a3b8; font-size:0.8rem; margin-top:6px; border-top:1px solid #334155; padding-top:6px;">SSL: <span class="font-mono">${safeSsl}</span></div>` : ""}
-          </div>
+    <div class="location-box">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:8px;">
+        <div style="flex:1; min-width:0;">
+          <div style="font-weight: bold; color: white; font-size: 0.95rem;">${humanLocation}</div>
+          ${rawLine ? `<div style="font-family: monospace; font-size: 0.8rem; color: #94a3b8; margin-top: 2px;">${rawLine}</div>` : ""}
+          ${namedLine ? `<div style="font-size: 0.8rem; color: #38bdf8; margin-top: 4px;">📍 ${safeNamed}</div>` : ""}
         </div>
+        <span class="area-badge area-${areaCode}">${areaCode.toUpperCase()}</span>
       </div>
-    `;
+
+      ${safeSsl ? `<div style="color:#94a3b8; font-size:0.8rem; margin-top:6px; border-top:1px solid #334155; padding-top:6px;">SSL: <span class="font-mono">${safeSsl}</span></div>` : ""}
+    </div>
+  </div>
+`;
     container.insertAdjacentHTML("beforeend", cardHTML);
   });
 
