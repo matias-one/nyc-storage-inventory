@@ -479,6 +479,101 @@ document.addEventListener("keydown", (e) => {
 
 
 
+/**
+ * Fetch every item on `lockedShelf`, render the contents list,
+ * and recompute the next bin (max + 1, or 01 if empty).
+ * Safe to call repeatedly.
+ */
+async function loadShelfContents() {
+  if (!lockedShelf) return;
+
+  const panel  = document.getElementById("shelf-contents-panel");
+  const list   = document.getElementById("shelf-contents-list");
+  const count  = document.getElementById("shelf-contents-count");
+  const empty  = document.getElementById("shelf-contents-empty");
+  const clearB = document.getElementById("clear-shelf-btn");
+
+  panel.style.display = "block";
+  list.innerHTML = '<div style="text-align:center; color:var(--text-muted); font-size:0.85rem; padding:10px;">Loading…</div>';
+
+  const { data, error } = await db
+    .from("inventory")
+    .select("id, sku, description, bin")
+    .eq("shelf", lockedShelf);
+
+  // Session may have ended while we were in flight
+  if (!lockedShelf) return;
+
+  if (error) {
+    list.innerHTML = `<div style="color:#ef4444; text-align:center; font-size:0.85rem;">Error: ${escapeHtml(error.message)}</div>`;
+    return;
+  }
+
+  const items = data || [];
+  count.textContent = items.length;
+  clearB.style.display = items.length === 0 ? "none" : "inline-block";
+
+  // Recompute next bin — max + 1, min 1
+  let maxBin = 0;
+  items.forEach(r => {
+    const b = parseInt(r.bin, 10);
+    if (!isNaN(b) && b > maxBin) maxBin = b;
+  });
+  nextBin = maxBin + 1;
+  document.getElementById("next-bin-label").textContent = String(nextBin).padStart(2, "0");
+
+  if (items.length === 0) {
+    list.innerHTML = "";
+    empty.style.display = "block";
+    return;
+  }
+  empty.style.display = "none";
+
+  // Sort numerically by bin (bin is text, may be "01".."99")
+  items.sort((a, b) => (parseInt(a.bin, 10) || 999) - (parseInt(b.bin, 10) || 999));
+
+  list.innerHTML = items.map(item => `
+    <div style="display:flex; align-items:center; gap:10px; padding:8px; background:#1e293b; border-radius:6px;">
+      <div style="font-family:monospace; font-weight:bold; color:var(--accent); min-width:34px; text-align:center; font-size:0.95rem;">
+        ${escapeHtml(String(item.bin ?? "—").padStart(2, "0"))}
+      </div>
+      <div style="flex:1; min-width:0;">
+        <div style="font-size:0.85rem; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+          ${escapeHtml(item.description || "(no description)")}
+        </div>
+        <div style="font-family:monospace; font-size:0.75rem; color:var(--text-muted);">
+          ${escapeHtml(item.sku)}
+        </div>
+      </div>
+      <button data-id="${item.id}" class="js-remove-from-shelf"
+              style="background:none; border:1px solid #ef4444; color:#ef4444; padding:4px 8px; border-radius:6px; cursor:pointer; font-size:0.75rem; white-space:nowrap;">
+        Remove
+      </button>
+    </div>
+  `).join("");
+
+  list.querySelectorAll(".js-remove-from-shelf").forEach(btn => {
+    btn.addEventListener("click", () => removeItemFromShelf(parseInt(btn.dataset.id, 10)));
+  });
+}
+
+async function removeItemFromShelf(id) {
+  if (!lockedShelf) return;
+  if (!confirm("Remove this item from the shelf? It will become unlocated (shelf & bin cleared).")) return;
+
+  const { error } = await db
+    .from("inventory")
+    .update({ shelf: null, bin: null })
+    .eq("id", id);
+
+  if (error) { updateLog("Remove failed: " + error.message, "#ef4444"); return; }
+
+  updateLog("🗑️ Item removed from shelf", "var(--text-muted)");
+  await loadShelfContents();
+}
+
+
+
 // ===== 8. SHELF MAPPER =====
 document.getElementById("shelf-lock-input").addEventListener("change", async (e) => {
   const parsed = parseShelfId(e.target.value);
@@ -491,27 +586,15 @@ document.getElementById("shelf-lock-input").addEventListener("change", async (e)
 
   updateLog(`Locking ${parsed.fullId}...`, "var(--warning)");
 
-  const { data, error } = await db.from("inventory").select("bin").eq("shelf", parsed.fullId);
-  if (error) { updateLog("Error locking shelf: " + error.message, "#ef4444"); return; }
-
-  let maxBin = 0;
-  (data || []).forEach(r => {
-    const b = parseInt(r.bin);
-    if (!isNaN(b) && b > maxBin) maxBin = b;
-  });
-
   lockedShelf = parsed.fullId;
   lockedShelfParsed = parsed;
-  nextBin = maxBin + 1;
 
   const named = await getNamedShelf(parsed.fullId);
 
   e.target.disabled = true;
   document.getElementById("shelf-info-display").style.display = "block";
   document.getElementById("active-shelf-label").textContent = lockedShelf;
-  document.getElementById("next-bin-label").textContent = String(nextBin).padStart(2, "0");
 
-  // Show the pill only if the HTML still has it (harmless if not)
   const unlockBtn = document.getElementById("unlock-shelf-btn");
   if (unlockBtn) unlockBtn.style.display = "inline-block";
 
@@ -522,19 +605,25 @@ document.getElementById("shelf-lock-input").addEventListener("change", async (e)
   setText("display-shelf-number", parsed.shelfNumber || "—");
   setText("display-named-shelf", named ? `${named.area}${named.description ? " — " + named.description : ""}` : "");
 
+  // Load existing contents; also computes nextBin
+  await loadShelfContents();
+
   const scanSection = document.getElementById("item-scan-section");
   scanSection.style.opacity = "1";
   scanSection.style.pointerEvents = "auto";
   mapperItemInput.focus();
 
   updateLog(
-    `Locked ${parsed.fullId} — ${parsed.floor}` +
-    `${parsed.aisle ? ", Aisle " + parsed.aisle : ""}` +
-    `${parsed.bay ? ", Bay " + parsed.bay : ""}` +
-    `${parsed.shelfNumber ? ", Shelf " + parsed.shelfNumber : ""}. Next bin: ${nextBin}`,
+    `Locked ${parsed.fullId} — ${parsed.floor}. ` +
+    (nextBin === 1
+      ? "Empty shelf — starting at bin 01."
+      : `${document.getElementById("shelf-contents-count").textContent} items already here. Next bin: ${String(nextBin).padStart(2, "0")}.`),
     "var(--accent)"
   );
 });
+
+
+
 
 /**
  * End the current shelf session and return to "ready for next shelf" state.
@@ -555,6 +644,9 @@ function endShelfSession() {
 
   const infoDisplay = document.getElementById("shelf-info-display");
   if (infoDisplay) infoDisplay.style.display = "none";
+
+  const contentsPanel = document.getElementById("shelf-contents-panel");
+if (contentsPanel) contentsPanel.style.display = "none";
 
   const qrPanel = document.getElementById("qr-panel");
   if (qrPanel) qrPanel.style.display = "none";
@@ -637,6 +729,24 @@ async function runMapperSearch(raw) {
 
 window.assignToShelf = async (sku) => {
   if (!lockedShelf) { updateLog("No shelf locked.", "#ef4444"); return; }
+
+  // ── NEW: if already on this shelf, confirm presence instead of re-binning ──
+  const { data: current } = await db
+    .from("inventory")
+    .select("shelf, bin")
+    .eq("sku", sku)
+    .maybeSingle();
+
+  if (current && current.shelf === lockedShelf) {
+    updateLog(`✓ ${sku} already at bin ${current.bin || "?"} — skipping`, "var(--success)");
+    mapperItemInput.value = "";
+    mapperResults.innerHTML = "";
+    mapperItemInput.focus();
+    return;
+  }
+  // ── end new ──
+
+  
   updateLog(`Assigning ${sku}...`, "var(--warning)");
 
   const { data, error: readErr } = await db.from("inventory").select("bin").eq("shelf", lockedShelf);
@@ -656,6 +766,9 @@ window.assignToShelf = async (sku) => {
   document.getElementById("next-bin-label").textContent = String(nextBin).padStart(2, "0");
   updateLog(`✅ ${sku} → ${lockedShelf} / Bin ${binStr}`, "var(--success)");
 
+    // NEW: refresh the contents list so the new item appears
+  await loadShelfContents();
+
   mapperItemInput.value = "";
   mapperResults.innerHTML = "";
   mapperItemInput.focus();
@@ -671,6 +784,31 @@ function updateLog(msg, color) {
   mapperLog.textContent = msg;
   mapperLog.style.color = color;
 }
+
+
+// ===== clear shelf button =====
+
+document.getElementById("clear-shelf-btn").addEventListener("click", async () => {
+  if (!lockedShelf) return;
+
+  const n = document.getElementById("shelf-contents-count").textContent;
+  if (!confirm(
+    `Clear ALL ${n} items from ${lockedShelf}?\n\n` +
+    `Their shelf and bin will be set to NULL (the items themselves are NOT deleted). ` +
+    `Next bin will reset to 01. This cannot be undone.`
+  )) return;
+
+  const { error } = await db
+    .from("inventory")
+    .update({ shelf: null, bin: null })
+    .eq("shelf", lockedShelf);
+
+  if (error) { updateLog("Clear failed: " + error.message, "#ef4444"); return; }
+
+  updateLog(`🗑️ Cleared ${lockedShelf} — starting fresh at bin 01`, "var(--warning)");
+  await loadShelfContents();
+});
+
 
 // ===== 9. QR =====
 let qrInstance = null;
