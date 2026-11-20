@@ -379,3 +379,11 @@ main {
   margin-top: 3px;
   font-family: monospace;
 }
+
+
+.mapper-sku-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
