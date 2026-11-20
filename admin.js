@@ -686,10 +686,10 @@ async function runMapperSearch(raw) {
   if (!sanitized) { mapperResults.innerHTML = ""; return; }
 
   const token = ++mapperSearchToken;
-  const { data, error } = await db.from("inventory")
-    .select("id, sku, description, barcode, ssl_barcode, shelf, bin")
-    .or(`sku.ilike.%${sanitized}%,description.ilike.%${sanitized}%,barcode.ilike.%${sanitized}%`)
-    .limit(10);
+const { data, error } = await db.from("inventory")
+  .select("id, sku, description, barcode, ssl_barcode, shelf, bin, image_url")  // ← add image_url
+  .or(`sku.ilike.%${sanitized}%,description.ilike.%${sanitized}%,barcode.ilike.%${sanitized}%`)
+  .limit(10);
 
   if (token !== mapperSearchToken) return;
   if (error) { updateLog("Search error: " + error.message, "#ef4444"); return; }
@@ -699,27 +699,34 @@ async function runMapperSearch(raw) {
     return;
   }
 
-  mapperResults.innerHTML = data.map(item => {
-    const sku = escapeHtml(item.sku);
-    const desc = escapeHtml(item.description || "—");
-    const bc = escapeHtml(item.barcode || "");
-    const ssl = escapeHtml(item.ssl_barcode || "");
-    const shelf = escapeHtml(item.shelf || "");
-    const bin = escapeHtml(item.bin || "");
-    return `
-      <div class="mapper-item-card">
-        <div class="mapper-item-info">
-          <div class="mapper-item-title">${desc}</div>
-          <div class="mapper-item-sku">SKU: ${sku}${item.barcode ? ` | BC: ${bc}` : ''}</div>
-          ${item.shelf ? `<div style="font-size: 0.75rem; color: var(--warning); margin-top: 4px;">Currently at: ${shelf}${item.bin ? " — Bin " + bin : ""}</div>` : ''}
-        </div>
-        <div class="mapper-actions">
-          <button data-sku="${sku}" class="btn-primary js-assign" style="padding: 6px 12px; font-size: 0.8rem;">Assign</button>
-          <input type="text" data-sku="${sku}" class="js-ssl" placeholder="SSL Barcode" value="${ssl}" style="padding: 4px; font-size: 0.75rem; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-dark); color: white; width: 110px;" />
-        </div>
+mapperResults.innerHTML = data.map(item => {
+  const sku  = escapeHtml(item.sku);
+  const desc = escapeHtml(item.description || "—");
+  const bc   = escapeHtml(item.barcode || "");
+  const ssl  = escapeHtml(item.ssl_barcode || "");
+  const shelf = escapeHtml(item.shelf || "");
+  const bin  = escapeHtml(item.bin || "");
+  const img  = escapeHtml(item.image_url || "");
+  return `
+    <div class="mapper-item-card">
+      <div class="mapper-thumb">
+        ${img
+          ? `<img src="${img}" alt="" loading="lazy" referrerpolicy="no-referrer"
+                  onerror="this.style.display='none'">`
+          : `<span style="color:#475569; font-size:12px;">—</span>`}
       </div>
-    `;
-  }).join("");
+      <div class="mapper-item-info">
+        <div class="mapper-item-title">${desc}</div>
+        <div class="mapper-item-sku">SKU: ${sku}${item.barcode ? ` | BC: ${bc}` : ''}</div>
+        ${item.shelf ? `<div style="font-size: 0.75rem; color: var(--warning); margin-top: 4px;">Currently at: ${shelf}${item.bin ? " — Bin " + bin : ""}</div>` : ''}
+      </div>
+      <div class="mapper-actions">
+        <button data-sku="${sku}" class="btn-primary js-assign" style="padding: 6px 12px; font-size: 0.8rem;">Assign</button>
+        <input type="text" data-sku="${sku}" class="js-ssl" placeholder="SSL Barcode" value="${ssl}" style="padding: 4px; font-size: 0.75rem; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-dark); color: white; width: 110px;" />
+      </div>
+    </div>
+  `;
+}).join("");
 
   mapperResults.querySelectorAll(".js-assign").forEach(btn =>
     btn.addEventListener("click", () => assignToShelf(btn.dataset.sku)));
