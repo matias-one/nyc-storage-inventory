@@ -57,6 +57,29 @@ async function getNamedShelf(shelfId) {
   return best;
 }
 
+
+// Paste near the other helpers (escapeHtml, etc.)
+function cleanEta(value) {
+  if (!value) return "";
+  let cleaned = String(value).replace(/[\n\r]+/g, " ").replace(/\s+/g, " ").trim();
+  if (cleaned.includes("|")) cleaned = cleaned.split("|")[0].trim();
+  const m = cleaned.match(/\b(\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4})\b/);
+  return m ? m[1] : (cleaned.split(" ")[0] || cleaned);
+}
+
+function getStatusBadge(stock, eta, discontinued) {
+  const etaText = cleanEta(eta);
+  const isDisc = String(discontinued).toLowerCase() === "yes"
+              || String(discontinued) === "true"
+              || String(discontinued) === "1";
+  if (isDisc) return { label: "D/C", css: "badge-discontinued", icon: "⛔" };
+  const isStocked = String(stock).toLowerCase() === "yes" || parseInt(stock) > 0;
+  if (isStocked) return { label: "In Stock", css: "badge-instock", icon: "✓" };
+  if (etaText)   return { label: "ETA: " + etaText, css: "badge-eta", icon: "🚚" };
+  return { label: "Out of Stock", css: "badge-out", icon: "✕" };
+}
+
+
 // ===== 4. DOM ELEMENTS =====
 const loginScreen = document.getElementById("loginScreen");
 const dashboard = document.getElementById("dashboard");
@@ -687,7 +710,7 @@ async function runMapperSearch(raw) {
 
   const token = ++mapperSearchToken;
 const { data, error } = await db.from("inventory")
-  .select("id, sku, description, barcode, ssl_barcode, shelf, bin, image_url")  // ← add image_url
+  .select("id, sku, description, barcode, ssl_barcode, shelf, bin, image_url, stock, eta, discontinued")  // ← add image_url
   .or(`sku.ilike.%${sanitized}%,description.ilike.%${sanitized}%,barcode.ilike.%${sanitized}%`)
   .limit(10);
 
@@ -707,6 +730,7 @@ mapperResults.innerHTML = data.map(item => {
   const shelf = escapeHtml(item.shelf || "");
   const bin  = escapeHtml(item.bin || "");
   const img  = escapeHtml(item.image_url || "");
+  const badge = getStatusBadge(item.stock, item.eta, item.discontinued);
   return `
     <div class="mapper-item-card">
       <div class="mapper-thumb">
@@ -716,7 +740,10 @@ mapperResults.innerHTML = data.map(item => {
           : `<span style="color:#475569; font-size:12px;">—</span>`}
       </div>
       <div class="mapper-item-info">
-        <div class="mapper-sku-hero">${sku}</div>
+        <div class="mapper-sku-row">
+          <div class="mapper-sku-hero">${sku}</div>
+          <span class="status-badge ${badge.css}" style="font-size:0.65rem; padding:3px 8px;">${badge.icon} ${escapeHtml(badge.label)}</span>
+        </div>
         <div class="mapper-desc">${desc}</div>
         ${item.barcode ? `<div class="mapper-meta">BC: ${bc}</div>` : ''}
         ${item.shelf ? `<div class="mapper-meta" style="color: var(--warning);">Currently at: ${shelf}${item.bin ? " — Bin " + bin : ""}</div>` : ''}
