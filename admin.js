@@ -716,9 +716,10 @@ mapperResults.innerHTML = data.map(item => {
           : `<span style="color:#475569; font-size:12px;">—</span>`}
       </div>
       <div class="mapper-item-info">
-        <div class="mapper-item-title">${desc}</div>
-        <div class="mapper-item-sku">SKU: ${sku}${item.barcode ? ` | BC: ${bc}` : ''}</div>
-        ${item.shelf ? `<div style="font-size: 0.75rem; color: var(--warning); margin-top: 4px;">Currently at: ${shelf}${item.bin ? " — Bin " + bin : ""}</div>` : ''}
+        <div class="mapper-sku-hero">${sku}</div>
+        <div class="mapper-desc">${desc}</div>
+        ${item.barcode ? `<div class="mapper-meta">BC: ${bc}</div>` : ''}
+        ${item.shelf ? `<div class="mapper-meta" style="color: var(--warning);">Currently at: ${shelf}${item.bin ? " — Bin " + bin : ""}</div>` : ''}
       </div>
       <div class="mapper-actions">
         <button data-sku="${sku}" class="btn-primary js-assign" style="padding: 6px 12px; font-size: 0.8rem;">Assign</button>
