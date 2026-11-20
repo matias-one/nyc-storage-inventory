@@ -325,3 +325,28 @@ main {
   width: auto;
   display: block;
 }
+
+
+.mapper-thumb {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  background: #1e293b;              /* lighter than the card — subtle lift */
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mapper-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;              /* full item visible, no crop */
+}
+
+.mapper-item-info { flex: 1; min-width: 0; }
+.mapper-item-title {
+  font-weight: bold; font-size: 1rem; margin-bottom: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
