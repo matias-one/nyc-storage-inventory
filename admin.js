@@ -59,6 +59,7 @@ async function getNamedShelf(shelfId) {
 
 
 // Paste near the other helpers (escapeHtml, etc.)
+// NOTE: mirrored in app.js — keep in sync until we extract to helpers.js
 function cleanEta(value) {
   if (!value) return "";
   let cleaned = String(value).replace(/[\n\r]+/g, " ").replace(/\s+/g, " ").trim();
