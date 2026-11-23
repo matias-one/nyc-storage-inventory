@@ -712,8 +712,8 @@ async function runMapperSearch(raw) {
   const token = ++mapperSearchToken;
 const { data, error } = await db.from("inventory")
   .select("id, sku, description, barcode, ssl_barcode, shelf, bin, image_url, stock, eta, discontinued")  // ← add image_url
-  .or(`sku.ilike.%${sanitized}%,description.ilike.%${sanitized}%,barcode.ilike.%${sanitized}%`)
-  .limit(10);
+    .or(`sku.ilike.%${sanitized}%,description.ilike.%${sanitized}%,barcode.ilike.%${sanitized}%,ssl_barcode.ilike.%${sanitized}%`)
+    .limit(10);
 
   if (token !== mapperSearchToken) return;
   if (error) { updateLog("Search error: " + error.message, "#ef4444"); return; }
