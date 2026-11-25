@@ -291,6 +291,93 @@ function ensureImagePreview() {
   grid.parentNode.insertBefore(wrap, grid);
 }
 
+
+// ===== CAMERA UPLOAD LOGIC =====
+const cameraBtn = document.getElementById("camera-btn");
+const cameraInput = document.getElementById("camera-input");
+
+if (cameraBtn && cameraInput) {
+  // Open camera/file picker when button is clicked
+  cameraBtn.addEventListener("click", () => cameraInput.click());
+
+  cameraInput.addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const originalText = cameraBtn.textContent;
+    cameraBtn.textContent = "⏳";
+    cameraBtn.disabled = true;
+
+    try {
+      // 1. Compress the image (max width/height 800px)
+      const resizedBlob = await resizeImage(file, 800);
+      
+      // 2. Create a unique filename and upload to Supabase Storage
+      const fileName = `local_${Date.now()}.jpg`;
+      const { data, error } = await db.storage
+        .from("product-images")
+        .upload(fileName, resizedBlob, { contentType: "image/jpeg" });
+
+      if (error) throw error;
+
+      // 3. Get the public URL for the newly uploaded image
+      const { data: urlData } = db.storage
+        .from("product-images")
+        .getPublicUrl(fileName);
+
+      // 4. Update the input field and the live preview
+      const newUrl = urlData.publicUrl;
+      document.getElementById("image_url").value = newUrl;
+      previewModalImage(newUrl); 
+      
+      // Note: showToast will work once we finish the shared.js refactor. 
+      // If you haven't done that yet, just use alert() here temporarily.
+      showToast("Image uploaded successfully!", "success");
+
+    } catch (err) {
+      console.error("Upload error:", err);
+      alert("Upload failed: " + err.message); 
+    } finally {
+      // Reset button state
+      cameraBtn.textContent = originalText;
+      cameraBtn.disabled = false;
+      cameraInput.value = ""; // Clear input so you can take another photo if needed
+    }
+  });
+}
+
+// Helper: Compress image in the browser before uploading
+function resizeImage(file, maxSize) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      let width = img.width;
+      let height = img.height;
+
+      // Calculate aspect ratio and scale down
+      if (width > height && width > maxSize) {
+        height *= maxSize / width;
+        width = maxSize;
+      } else if (height > maxSize) {
+        width *= maxSize / height;
+        height = maxSize;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // Convert to JPEG blob (0.8 quality is a great balance of size and clarity)
+      canvas.toBlob(blob => resolve(blob), "image/jpeg", 0.8);
+    };
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+
 function previewModalImage(url) {
   const container = document.getElementById("modal-img-preview");
   if (!container) return;
