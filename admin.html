@@ -267,7 +267,16 @@
          
           <div class="form-group"><label>Shelf</label><input type="text" id="shelf" /></div>
           <div class="form-group"><label>Bin</label><input type="text" id="bin" /></div>
-          <div class="form-group"><label>Image URL</label><input type="url" id="image_url" /></div>
+          <!-- Inside admin.html -> itemForm -> form-grid -->
+<div class="form-group">
+  <label>Image URL</label>
+  <div style="display: flex; gap: 8px;">
+    <input type="url" id="image_url" style="flex: 1;" />
+    <!-- Hidden file input for camera -->
+    <input type="file" id="camera-input" accept="image/*" capture="environment" style="display: none;" />
+    <button type="button" id="camera-btn" class="btn-primary" style="padding: 0 12px; font-size: 1.2rem;" title="Take Photo">📷</button>
+  </div>
+</div>
         </div>
         <div style="display: flex; justify-content: flex-end; gap: 10px;">
           <button type="button" id="cancelModalBtn" class="filter-pill">Cancel</button>
