@@ -38,11 +38,6 @@ const sep = lastUnder === -1 && lastDot === -1 ? null
   };
 }
 
-function escapeHtml(s) {
-  return String(s ?? "").replace(/[&<>"']/g, c => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
-  }[c]));
-}
 
 async function getNamedShelf(shelfId) {
   const upper = String(shelfId || "").toUpperCase();
@@ -55,29 +50,6 @@ async function getNamedShelf(shelfId) {
     if (p && upper.startsWith(p) && (!best || p.length > best.pattern.length)) best = row;
   }
   return best;
-}
-
-
-// Paste near the other helpers (escapeHtml, etc.)
-// NOTE: mirrored in app.js — keep in sync until we extract to helpers.js
-function cleanEta(value) {
-  if (!value) return "";
-  let cleaned = String(value).replace(/[\n\r]+/g, " ").replace(/\s+/g, " ").trim();
-  if (cleaned.includes("|")) cleaned = cleaned.split("|")[0].trim();
-  const m = cleaned.match(/\b(\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4})\b/);
-  return m ? m[1] : (cleaned.split(" ")[0] || cleaned);
-}
-
-function getStatusBadge(stock, eta, discontinued) {
-  const etaText = cleanEta(eta);
-  const isDisc = String(discontinued).toLowerCase() === "yes"
-              || String(discontinued) === "true"
-              || String(discontinued) === "1";
-  if (isDisc) return { label: "D/C", css: "badge-discontinued", icon: "⛔" };
-  const isStocked = String(stock).toLowerCase() === "yes" || parseInt(stock) > 0;
-  if (isStocked) return { label: "In Stock", css: "badge-instock", icon: "✓" };
-  if (etaText)   return { label: "ETA: " + etaText, css: "badge-eta", icon: "🚚" };
-  return { label: "Out of Stock", css: "badge-out", icon: "✕" };
 }
 
 
