@@ -13,22 +13,8 @@ let currentFilter = "all";
 let namedShelves = [];
 
 // ===== 3. HELPERS =====
-function escapeHtml(s) {
-  return String(s ?? "").replace(/[&<>"']/g, c => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
-  }[c]));
-}
 
-// NOTE: mirrored in app.js — keep in sync until we extract to helpers.js
-function cleanEta(value) {
-  if (!value) return "";
-  let cleaned = String(value).replace(/[\n\r]+/g, " ").replace(/\s+/g, " ").trim();
-  if (cleaned.includes("|")) cleaned = cleaned.split("|")[0].trim();
-  const dateRegex = /\b(\d{1,2}[-\/]\d{1,2}[-\/]\d{2,4})\b/;
-  const match = cleaned.match(dateRegex);
-  if (match) return match[1];
-  return cleaned.split(" ")[0] || cleaned;
-}
+
 
 /**
  * Use the Postgres generated columns; fall back to raw shelf for legacy rows.
@@ -52,19 +38,7 @@ function getLocationParts(item) {
   return { floor, aisle, bay, shelfNum, bin, rawShelf, hasLocation };
 }
 
-function getStatusBadge(stock, eta, discontinued) {
-  const etaText = cleanEta(eta);
-  const isDisc = String(discontinued).toLowerCase() === "yes"
-              || String(discontinued) === "true"
-              || String(discontinued) === "1";
 
-  if (isDisc) return { label: "D/C", css: "badge-discontinued", icon: "⛔" };
-
-  const isStocked = String(stock).toLowerCase() === "yes" || parseInt(stock) > 0;
-  if (isStocked) return { label: "In Stock", css: "badge-instock", icon: "✓" };
-  if (etaText)   return { label: "ETA: " + etaText, css: "badge-eta", icon: "🚚" };
-  return { label: "Out of Stock", css: "badge-out", icon: "✕" };
-}
 
 function getNamedLabel(shelfId) {
   const upper = String(shelfId || "").toUpperCase();
@@ -276,3 +250,4 @@ window.onload = async () => {
   await loadNamedShelves();   // small, fast, cached for the session
   fetchInventory();
 };
+
